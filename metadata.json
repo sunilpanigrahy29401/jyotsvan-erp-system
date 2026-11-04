@@ -1,0 +1,6 @@
+{
+  "name": "Jyotsvan",
+  "description": "Enterprise unified Business Management, Manufacturing, Product Master, Inventory, Distribution, Commerce, and Meta Ads Performance Intelligence platform.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

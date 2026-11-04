@@ -1,0 +1,1158 @@
+# JYOTSVAN ENTERPRISE PLATFORM
+# COMPLETE HRMS DEVELOPMENT — MASTER IMPLEMENTATION PROMPT
+
+You are acting as a Principal Enterprise HRMS Architect, Senior Full-Stack Engineer, PostgreSQL Database Architect, Indian Payroll Domain Specialist, UI/UX Designer and Enterprise QA Engineer.
+
+Your assignment is to complete the entire HRMS (Human Resource Management System) inside the existing Jyotsvan Enterprise Platform.
+
+This is a full implementation task, not an audit task.
+
+**Develop all HRMS features, database structures, backend services, APIs, frontend interfaces, workflows, permissions, reports and integrations defined below.**
+
+Do not stop after individual phases. Execute all phases sequentially in this task until the complete HRMS development scope has been implemented.
+
+---
+
+# 1. EXISTING PROJECT CONTEXT
+
+The existing Jyotsvan platform uses:
+
+- Frontend: React 19, TypeScript, Vite and Tailwind CSS v4.
+- Backend: Node.js 22, Express 4 and TypeScript.
+- Database: InsForge Managed PostgreSQL 17.4.
+- AI: Google Gemini through the existing server-side integration.
+- Existing authentication and capability-based RBAC.
+- Existing modular backend architecture with multiple API routers.
+
+Existing HRMS files:
+
+**Frontend**
+- `src/app/pages/PeoplePage.tsx`
+- `src/app/pages/people/PeopleDashboard.tsx`
+- `src/app/pages/people/EmployeeDirectory.tsx`
+- `src/app/pages/people/Employee360Modal.tsx`
+- `src/app/pages/people/OnboardEmployeeModal.tsx`
+- `src/app/pages/people/AttendanceManagement.tsx`
+- `src/app/pages/people/LeaveManagement.tsx`
+- `src/app/pages/people/OrgHierarchyView.tsx`
+- `src/app/pages/people/PerformanceScorecards.tsx`
+- `src/app/pages/people/WorkforceTasks.tsx`
+- `src/app/pages/people/DesignationsModal.tsx`
+
+**Backend**
+- `src/services/people-api.ts`
+- `src/server/people-routes.ts`
+- `src/server/people-service.ts`
+- `src/server/migrate-people.ts`
+- `src/types/people.ts`
+
+The existing implementation already contains significant HRMS functionality.
+
+Preserve and extend the existing implementation. Do not rebuild the entire module from scratch or unnecessarily replace working components.
+
+You may reorganize, refactor and improve existing files when technically required.
+
+Do not change the existing platform technology stack.
+
+Do not introduce ERPNext, Frappe, Odoo or another external HRMS.
+
+# 2. DEVELOPMENT OBJECTIVE
+
+Build a complete enterprise-grade HRMS that supports a manufacturing organization with multiple branches, departments, plants, offices, employees, managers and HR administrators.
+
+The HRMS must support the complete employee lifecycle:
+
+Employee creation → Onboarding → Organization assignment → Attendance → Shift allocation → Leave → Performance → Payroll → Payslip → Employee Self-Service → Separation.
+
+All modules must be interconnected through consistent employee records, organization references, APIs and database relationships.
+
+Avoid creating disconnected screens or isolated demo modules.
+
+Every feature must have its own appropriate backend logic, database design and permission controls.
+
+# 3. COMPLETE HRMS MODULES
+
+## MODULE 1 — EMPLOYEE MANAGEMENT
+
+Develop a comprehensive employee master.
+
+Features:
+
+- Employee directory.
+- Employee ID generation.
+- Employee code and employee number.
+- Employee profile.
+- Personal information.
+- Contact information.
+- Emergency contacts.
+- Present and permanent addresses.
+- Date of birth.
+- Gender and other relevant demographic fields.
+- Date of joining.
+- Employment status.
+- Employment type.
+- Probation status.
+- Confirmation date.
+- Retirement date, where applicable.
+- Branch and department assignment.
+- Designation and reporting manager.
+- Employee category and grade.
+- Work location.
+- Employee photograph.
+- Employee documents.
+- Bank details.
+- PAN, UAN, PF and ESIC identifiers where applicable.
+- Employment history.
+- Compensation history.
+- Employee notes and activity history.
+
+Support employee creation, editing, viewing, searching, filtering, sorting, archiving and status changes.
+
+Create a comprehensive Employee 360-degree profile with properly organized tabs.
+
+Sensitive information must be separated from ordinary employee information and protected through explicit permissions.
+
+## MODULE 2 — ORGANIZATION MANAGEMENT
+
+Build complete organization and workforce structure management.
+
+Features:
+
+- Organization.
+- Branches.
+- Manufacturing plants.
+- Offices.
+- Departments.
+- Sub-departments.
+- Designations.
+- Job grades.
+- Employee categories.
+- Reporting hierarchy.
+- Reporting managers.
+- Department heads.
+- Organizational hierarchy visualization.
+- Employee transfer between branches.
+- Department transfer.
+- Designation changes.
+- Historical organization assignments.
+
+Prevent invalid reporting relationships and circular manager hierarchies.
+
+Support effective dates for employee transfers and organizational changes.
+
+## MODULE 3 — EMPLOYEE ONBOARDING
+
+Build a structured onboarding workflow.
+
+Features:
+
+- Employee registration.
+- Personal information collection.
+- Employment details.
+- Document submission.
+- Document verification.
+- Bank details collection.
+- Statutory information collection.
+- Department and manager assignment.
+- Shift assignment.
+- Salary structure assignment.
+- Probation configuration.
+- Onboarding checklist.
+- Onboarding task assignments.
+- HR verification.
+- Onboarding completion status.
+
+Create configurable onboarding checklists.
+
+Support pending, in-progress, completed and rejected stages.
+
+## MODULE 4 — EMPLOYEE DOCUMENT MANAGEMENT
+
+Create a secure document management system.
+
+Support:
+
+- Identity documents.
+- Address proof.
+- PAN.
+- Aadhaar, where required.
+- Educational certificates.
+- Experience letters.
+- Appointment letters.
+- Employment agreements.
+- Bank documents.
+- PF and ESI documents.
+- Other HR documents.
+
+Features:
+
+- Secure document upload.
+- Private storage.
+- Document categories.
+- Expiry dates.
+- Verification status.
+- Document approval.
+- Download permissions.
+- Document history.
+- Employee-specific document access.
+
+Do not expose private document URLs or unrestricted storage access.
+
+## MODULE 5 — SHIFT MANAGEMENT
+
+Build a configurable shift management system.
+
+Features:
+
+- Shift master.
+- Morning shifts.
+- General shifts.
+- Evening shifts.
+- Night shifts.
+- Rotational shifts.
+- Flexible shifts.
+- Shift start and end times.
+- Grace periods.
+- Break durations.
+- Weekly offs.
+- Overtime eligibility.
+- Night shift allowances.
+- Shift assignment to employees.
+- Department-wise shift allocation.
+- Plant-wise shift allocation.
+- Shift rotation schedules.
+- Effective-date-based assignments.
+
+Support overnight shifts crossing midnight.
+
+Avoid hardcoded shift timings.
+
+## MODULE 6 — HOLIDAY AND WORKING CALENDAR
+
+Build an organization-wide and branch-specific calendar.
+
+Features:
+
+- Public holidays.
+- State-specific holidays.
+- Plant-specific holidays.
+- Company holidays.
+- Weekly-off policies.
+- Restricted holidays.
+- Holiday categories.
+- Holiday calendar assignment.
+- Working day calculation.
+- Calendar view.
+- Holiday list and reports.
+
+Support different calendars for different branches and plants.
+
+## MODULE 7 — ATTENDANCE MANAGEMENT
+
+Build a complete attendance management engine.
+
+Features:
+
+- Employee check-in.
+- Employee check-out.
+- Multiple punches per day.
+- Break punches.
+- Attendance records.
+- Daily attendance register.
+- Monthly muster roll.
+- Present, absent and half-day status.
+- Late arrival.
+- Early departure.
+- Missing check-out.
+- Overtime calculation.
+- Shift-based attendance calculation.
+- Weekly-off handling.
+- Holiday handling.
+- Attendance corrections.
+- Attendance regularization.
+- Manager approvals.
+- HR approvals.
+- Attendance history.
+- Attendance exports.
+- Monthly attendance summary.
+- Attendance period locking.
+
+Support web, mobile and manual attendance sources.
+
+Design attendance calculations using assigned shifts, grace periods, working hours and configurable attendance policies.
+
+Prevent duplicate and conflicting punches.
+
+Maintain complete attendance correction history.
+
+**STRICT REQUIREMENT: DO NOT IMPLEMENT GPS TRACKING.**
+
+Do not develop:
+
+- GPS-based attendance.
+- GPS check-in or check-out.
+- Employee live-location tracking.
+- Background GPS tracking.
+- GPS breadcrumbs.
+- Location-based employee surveillance.
+
+No GPS functionality is required anywhere in Jyotsvan HRMS.
+
+## MODULE 8 — LEAVE MANAGEMENT
+
+Develop a complete leave management system.
+
+Leave types may include:
+
+- Casual Leave.
+- Sick Leave.
+- Earned Leave.
+- Privilege Leave.
+- Maternity Leave.
+- Paternity Leave.
+- Compensatory Off.
+- Unpaid Leave.
+- Other configurable leave categories.
+
+Features:
+
+- Leave type master.
+- Leave eligibility.
+- Leave policies.
+- Annual allocation.
+- Monthly accrual.
+- Opening balances.
+- Available balances.
+- Pending leave.
+- Used leave.
+- Leave applications.
+- Leave approval workflows.
+- Rejection with reasons.
+- Cancellation.
+- Half-day leave.
+- Multiple-day leave.
+- Overlapping leave validation.
+- Holiday and weekly-off handling.
+- Sandwich leave policy.
+- Carry-forward.
+- Expiry rules.
+- Leave encashment.
+- Compensatory leave.
+- Leave balance ledger.
+- Leave history.
+- Department-wise leave reports.
+
+Use transaction-based balance management.
+
+Every leave credit, deduction, adjustment and reversal must have a traceable record.
+
+## MODULE 9 — EMPLOYEE SELF-SERVICE PORTAL
+
+Develop a dedicated Employee Self-Service workspace.
+
+Employees should be able to:
+
+- View their profile.
+- View permitted personal information.
+- View attendance.
+- View monthly attendance calendar.
+- Check in and check out.
+- Apply for leave.
+- View leave balances.
+- Track leave approvals.
+- View assigned tasks.
+- View permitted company announcements.
+- Access their own documents.
+- Update permitted personal information.
+- Download their own payslips.
+- View permitted salary information.
+- Submit HR requests.
+
+An employee must never be able to access another employee's private information.
+
+Implement backend-enforced record-level access.
+
+Do not rely only on frontend visibility or route hiding.
+
+## MODULE 10 — SALARY COMPONENT MANAGEMENT
+
+Create a configurable salary component master.
+
+Support earnings:
+
+- Basic Salary.
+- Dearness Allowance.
+- House Rent Allowance.
+- Conveyance Allowance.
+- Special Allowance.
+- Medical Allowance.
+- Other Allowances.
+- Bonus.
+- Incentives.
+- Overtime.
+- Arrears.
+
+Support deductions:
+
+- Employee PF.
+- Employee ESI.
+- Professional Tax.
+- TDS.
+- Loan Recovery.
+- Advance Recovery.
+- Other Deductions.
+
+Support employer contributions:
+
+- Employer PF.
+- Employer ESI.
+- Other applicable employer contributions.
+
+Each component should support:
+
+- Component code.
+- Component name.
+- Earning or deduction classification.
+- Calculation method.
+- Fixed amount.
+- Percentage-based calculation.
+- Formula-based calculation.
+- Taxability.
+- PF applicability.
+- ESI applicability.
+- Effective dates.
+- Priority and calculation order.
+- Active/inactive status.
+
+Keep calculations configurable and reusable.
+
+## MODULE 11 — SALARY STRUCTURE MANAGEMENT
+
+Develop salary structures and compensation management.
+
+Features:
+
+- Salary structure templates.
+- Employee salary assignment.
+- Designation-based salary grades.
+- Department-specific structures.
+- Monthly and annual compensation.
+- CTC calculation.
+- Earnings breakdown.
+- Deductions breakdown.
+- Employer contributions.
+- Effective dates.
+- Salary revisions.
+- Increment history.
+- Compensation approval.
+- Salary structure versioning.
+
+Maintain historical salary records.
+
+Never overwrite previous approved salary structures.
+
+## MODULE 12 — PAYROLL PROCESSING
+
+Develop a complete monthly payroll engine.
+
+Workflow:
+
+Payroll Period Creation → Attendance Review → Leave and LOP Calculation → Salary Calculation → Statutory Deductions → Payroll Review → Approval → Locking → Payslip Generation → Disbursement Tracking.
+
+Features:
+
+- Monthly payroll periods.
+- Payroll run creation.
+- Payroll calculation.
+- Employee-wise payroll.
+- Department-wise payroll.
+- Branch-wise payroll.
+- Attendance-based salary.
+- Paid leave calculation.
+- Unpaid leave calculation.
+- Loss of Pay.
+- Overtime.
+- Bonus.
+- Incentives.
+- Arrears.
+- Deductions.
+- Employer contributions.
+- Gross salary.
+- Net salary.
+- Total employer cost.
+- Payroll adjustments.
+- Payroll approval.
+- Payroll locking.
+- Payment status.
+- Bank transfer reference.
+- Payroll reports.
+
+Support draft, calculated, under-review, approved, locked and paid states.
+
+Prevent duplicate payroll runs for the same employee and period.
+
+Once payroll is approved and locked, changes must require a controlled revision or adjustment workflow.
+
+## MODULE 13 — INDIAN STATUTORY PAYROLL COMPLIANCE
+
+Implement configurable Indian payroll compliance architecture.
+
+Support:
+
+- Employees' Provident Fund.
+- Employees' State Insurance.
+- Professional Tax.
+- Tax Deducted at Source under Section 192.
+- Income tax regime selection.
+- Gratuity calculations.
+- Applicable employer contributions.
+- Statutory reports.
+- Employee statutory declarations.
+- Tax-related information.
+- Form and statement generation support where applicable.
+
+Important:
+
+Do not blindly hardcode rates or thresholds from old documents.
+
+Use configurable, effective-dated statutory rule records.
+
+Allow organization-specific applicability settings and state-specific Professional Tax rules.
+
+Verify statutory rules against applicable official regulations before treating calculations as production-ready.
+
+Keep calculation engines modular so future statutory updates do not require rewriting payroll.
+
+## MODULE 14 — PAYSLIP MANAGEMENT
+
+Build professional payslip generation.
+
+Features:
+
+- Monthly payslips.
+- Employee details.
+- Employer details.
+- Payroll period.
+- Attendance summary.
+- Paid days.
+- Unpaid days.
+- Earnings breakdown.
+- Deductions breakdown.
+- Employer contribution details.
+- Gross salary.
+- Net salary.
+- Year-to-date totals where supported.
+- PDF generation.
+- Download.
+- Employee self-service access.
+- Payslip revision history.
+
+Ensure payslips are generated from approved payroll records, not independently calculated frontend values.
+
+## MODULE 15 — EMPLOYEE PERFORMANCE MANAGEMENT
+
+Extend the existing performance scorecard functionality.
+
+Features:
+
+- Employee targets.
+- Department targets.
+- Monthly targets.
+- Quarterly targets.
+- Annual targets.
+- KPI configuration.
+- Performance reviews.
+- Manager evaluations.
+- Employee self-evaluation.
+- Performance ratings.
+- Appraisal history.
+- Review cycles.
+- Performance improvement plans.
+- Review approvals.
+- Performance reports.
+
+Support both quantitative and qualitative KPIs.
+
+Maintain historical performance records.
+
+## MODULE 16 — EMPLOYEE INCENTIVES AND COMMISSIONS
+
+Create an employee incentive management system.
+
+Features:
+
+- Incentive policies.
+- Sales targets.
+- Achievement calculations.
+- Collection-based incentives.
+- Product-based incentives.
+- Department-wise incentives.
+- Approval workflows.
+- Incentive history.
+- Payroll integration.
+
+Keep incentive calculation rules configurable.
+
+Do not automatically pay unapproved incentives.
+
+## MODULE 17 — WORKFORCE TASK MANAGEMENT
+
+Extend existing Workforce Tasks.
+
+Features:
+
+- Task creation.
+- Task assignment.
+- Employee assignment.
+- Department assignment.
+- Priority.
+- Due dates.
+- Task status.
+- Comments.
+- Attachments.
+- Task completion.
+- Manager review.
+- Overdue tasks.
+- Task reports.
+
+Connect tasks with employee profiles and relevant HR workflows.
+
+## MODULE 18 — EMPLOYEE SEPARATION AND EXIT MANAGEMENT
+
+Build a complete employee exit workflow.
+
+Features:
+
+- Resignation submission.
+- Resignation approval.
+- Notice period.
+- Last working day.
+- Exit interview.
+- Asset clearance.
+- Department clearance.
+- Document clearance.
+- Pending task clearance.
+- Advance and loan recovery coordination.
+- Final settlement calculation inputs.
+- Exit documents.
+- Experience letter.
+- Relieving letter.
+- Employee status update.
+- Rehire eligibility.
+
+Maintain employee history after separation.
+
+Do not permanently delete historical employee records.
+
+## MODULE 19 — HR REQUEST AND APPROVAL CENTRE
+
+Create a unified HR workflow centre.
+
+Support requests such as:
+
+- Leave requests.
+- Attendance corrections.
+- Employee information updates.
+- Document verification.
+- Shift change requests.
+- Salary revision requests.
+- Expense or reimbursement requests.
+- Resignation requests.
+- Other configurable HR requests.
+
+Features:
+
+- Configurable approval levels.
+- Manager approval.
+- HR approval.
+- Finance approval when applicable.
+- Approval delegation.
+- Rejection reasons.
+- Approval history.
+- Pending queues.
+- Notifications.
+
+Reuse the existing platform workflow and notification architecture wherever suitable.
+
+## MODULE 20 — HR ANNOUNCEMENTS AND COMMUNICATION
+
+Create an HR announcement centre.
+
+Features:
+
+- Company announcements.
+- Branch-specific announcements.
+- Department-specific announcements.
+- Employee-specific announcements.
+- Holiday announcements.
+- Policy updates.
+- Internal notices.
+- Read/unread tracking.
+- Scheduled announcements.
+- Announcement history.
+
+Keep external WhatsApp and Chatwoot integration out of this implementation. Those will be developed later in the local environment.
+
+## MODULE 21 — HR REPORTS AND ANALYTICS
+
+Create a comprehensive reporting system.
+
+Employee reports:
+- Total headcount.
+- Active employees.
+- Inactive employees.
+- New joiners.
+- Exits.
+- Department-wise headcount.
+- Branch-wise headcount.
+- Designation-wise headcount.
+- Employment type distribution.
+
+Attendance reports:
+- Daily attendance.
+- Monthly attendance.
+- Absenteeism.
+- Late arrivals.
+- Early departures.
+- Overtime.
+- Missing punches.
+- Attendance regularization.
+
+Leave reports:
+- Leave balances.
+- Leave utilization.
+- Pending approvals.
+- Department-wise leave.
+- Leave liability.
+- Carry-forward.
+
+Payroll reports:
+- Monthly payroll summary.
+- Department-wise payroll.
+- Branch-wise payroll.
+- Earnings and deductions.
+- Net salary payable.
+- Employer contribution.
+- Payroll disbursement status.
+- Statutory summaries.
+
+Performance reports:
+- Target achievement.
+- Performance ratings.
+- Appraisal status.
+- Incentive summaries.
+
+Support filters, date ranges, drill-downs and appropriate exports.
+
+Reports must use actual backend data and calculations.
+
+## MODULE 22 — HRMS DASHBOARDS
+
+Create a modern HR dashboard with multiple views.
+
+**A. HR Executive Dashboard**
+- Total headcount.
+- Active employees.
+- New joiners.
+- Employees on leave.
+- Upcoming confirmations.
+- Probation employees.
+- Department distribution.
+- Branch distribution.
+
+**B. Attendance Dashboard**
+- Today's present.
+- Absent.
+- On leave.
+- Late arrivals.
+- Missing check-outs.
+- Attendance percentage.
+
+**C. Leave Dashboard**
+- Pending leave approvals.
+- Leave utilization.
+- Leave balances.
+- Department-wise leave.
+
+**D. Shift Dashboard**
+- Shift allocation.
+- Department coverage.
+- Plant-wise shift distribution.
+- Upcoming roster.
+
+**E. Payroll Dashboard**
+- Monthly wage bill.
+- Gross salary.
+- Net salary.
+- Total deductions.
+- Employer contributions.
+- Pending payroll approvals.
+- Payment status.
+
+**F. Employee Dashboard**
+- Personal attendance.
+- Leave balance.
+- Upcoming holidays.
+- Assigned tasks.
+- Recent announcements.
+- Payslip access.
+
+Dashboards must use accurate backend calculations.
+
+Do not display fabricated metrics or static demonstration values.
+
+## MODULE 23 — HRMS SETTINGS
+
+Create configurable HRMS settings.
+
+Support:
+
+- Employee ID formats.
+- Attendance policies.
+- Grace periods.
+- Working hours.
+- Shift policies.
+- Weekly offs.
+- Holiday calendars.
+- Leave policies.
+- Accrual rules.
+- Payroll frequencies.
+- Salary components.
+- Statutory settings.
+- Approval workflows.
+- Document categories.
+- Employee categories.
+- Probation settings.
+- Exit settings.
+
+Settings should be organization-aware and branch-aware where appropriate.
+
+# 4. DATABASE ARCHITECTURE
+
+Create all necessary database migrations and schema definitions for the complete HRMS.
+
+The database design should cover:
+
+- Employees.
+- Designations.
+- Employee organization assignments.
+- Employee documents.
+- Employee bank and statutory information.
+- Shifts.
+- Shift assignments.
+- Rosters.
+- Holidays.
+- Weekly-off policies.
+- Attendance records.
+- Attendance punch events.
+- Attendance corrections.
+- Attendance period locks.
+- Leave types.
+- Leave policies.
+- Leave balances.
+- Leave ledger.
+- Leave requests.
+- Salary components.
+- Salary structures.
+- Salary structure components.
+- Employee compensation assignments.
+- Payroll periods.
+- Payroll runs.
+- Payroll employee results.
+- Payslips.
+- Payroll adjustments.
+- Statutory rule configurations.
+- Performance targets.
+- Performance reviews.
+- Incentive policies.
+- Incentive records.
+- Workforce tasks.
+- Employee onboarding records.
+- Employee exit records.
+- HR requests.
+- Approval records.
+- HR announcements.
+- HR audit records.
+
+Use appropriate relationships, constraints, indexes and organization boundaries.
+
+Avoid unnecessary duplicate tables if suitable existing tables already exist.
+
+Use migrations to define schema changes.
+
+Keep migrations version-controlled and suitable for later execution in a local development environment.
+
+**Important:** The current audit found that the existing HRMS migration has not successfully established its tables in the live database. Do not assume that the live schema already contains the required objects.
+
+During this development task, prioritize complete code, schema definitions, migration files and application functionality. Do not make destructive database changes or claim live database activation unless actually verified.
+
+# 5. SECURITY AND PERMISSIONS
+
+Extend the existing Jyotsvan capability-based RBAC.
+
+Create appropriate permissions for:
+
+- Employee management.
+- Organization management.
+- Employee documents.
+- Attendance.
+- Attendance approvals.
+- Leave.
+- Leave approvals.
+- Shift management.
+- Payroll.
+- Salary information.
+- Bank information.
+- Statutory information.
+- Payslips.
+- Performance.
+- Incentives.
+- Workforce tasks.
+- HR reports.
+- HR settings.
+
+Support these capability profiles:
+
+1. Super Admin / Head HR
+2. HR Executive
+3. Reporting Manager
+4. Payroll Administrator
+5. Employee Self-Service
+
+Apply record-level access restrictions.
+
+Employees can access only their own permitted records.
+
+Managers can access only employees within their reporting scope.
+
+Payroll administrators can access payroll information only when explicitly authorized.
+
+Never expose sensitive salary, bank or statutory information through general employee APIs.
+
+All authorization must be enforced on the backend.
+
+Do not introduce hardcoded organization IDs, user IDs or insecure authentication fallbacks.
+
+# 6. FUTURE ACCOUNTING INTEGRATION ARCHITECTURE
+
+Accounting will be developed separately later in the local environment with Claude.
+
+Therefore:
+
+- Do not build a General Ledger.
+- Do not build a Chart of Accounts.
+- Do not create accounting journal entries.
+- Do not duplicate future accounting functionality.
+
+Prepare a clean payroll integration contract.
+
+Create a versioned and immutable `ApprovedPayrollRunHandoff` interface containing:
+
+- Payroll run ID.
+- Payroll period.
+- Organization ID.
+- Disbursement date.
+- Total gross salary.
+- Total net salary payable.
+- Employee deduction totals.
+- Employer contribution totals.
+- Department-wise payroll breakdown.
+- Approval status.
+- Approved by.
+- Approval timestamp.
+- Payroll lock status.
+- Immutable hash.
+- Source and audit metadata.
+
+The future accounting module should be able to consume this payload and generate journal entries without needing to access internal HRMS payroll tables directly.
+
+Keep this contract documented and reusable.
+
+# 7. FRONTEND AND USER EXPERIENCE
+
+Follow the existing Jyotsvan design system.
+
+Build a premium enterprise-grade interface.
+
+Requirements:
+
+- Consistent typography.
+- Consistent spacing.
+- Responsive layouts.
+- Professional data tables.
+- Search and filters.
+- Useful empty states.
+- Loading states.
+- Error handling.
+- Confirmation dialogs.
+- Form validation.
+- Modal and drawer consistency.
+- Clear status indicators.
+- Contextual navigation.
+- Accessible interactions.
+
+Organize HRMS navigation into logical sections:
+
+1. Overview
+2. Employees
+3. Organization
+4. Attendance
+5. Shifts & Holidays
+6. Leave
+7. Payroll
+8. Performance & Incentives
+9. Workforce Tasks
+10. Employee Self-Service
+11. HR Requests & Approvals
+12. Reports
+13. Settings
+
+Do not create an unnecessarily crowded sidebar.
+
+Reuse existing components wherever suitable.
+
+Every new page must be connected to its actual API and business logic.
+
+# 8. DEVELOPMENT QUALITY REQUIREMENTS
+
+- Use TypeScript types throughout.
+- Keep API contracts consistent.
+- Keep reusable business logic in services.
+- Validate all backend inputs.
+- Use database transactions for multi-step operations.
+- Prevent duplicate operations.
+- Maintain audit trails.
+- Handle timezones and date boundaries correctly.
+- Handle overnight shifts.
+- Handle leap years and different month lengths.
+- Handle salary revisions and effective dates.
+- Handle leave overlaps and balance adjustments.
+- Handle payroll locking and controlled revisions.
+- Protect private employee information.
+- Keep code modular and maintainable.
+- Avoid unnecessary dependencies.
+- Avoid mock data in actual operational workflows.
+- Avoid hardcoded business rules where configuration is required.
+- Do not break other Jyotsvan modules.
+
+# 9. LOCAL DEVELOPMENT PORTABILITY
+
+The platform will later be moved into Antigravity/local IDE development.
+
+Keep the implementation easy to continue outside Google AI Studio.
+
+Requirements:
+
+- Clear separation of frontend and backend responsibilities.
+- Reusable backend services.
+- Explicit API contracts.
+- Versioned migrations.
+- Documented environment variables.
+- No hardcoded cloud-specific assumptions.
+- No unnecessary proprietary dependencies.
+- Clear database relationships.
+- Clear payroll integration interface.
+- Documented business rules.
+- No dependency on AI Studio-specific execution behaviour.
+
+Keep existing InsForge integration compatible, but avoid coupling core HRMS business logic directly to InsForge-only features.
+
+# 10. EXECUTION STRATEGY — ALL PHASES IN ONE TASK
+
+Implement the entire HRMS in this sequence:
+
+Phase 1: Employee and Organization Foundation.
+
+Phase 2: Onboarding and Document Management.
+
+Phase 3: Shift, Roster and Holiday Management.
+
+Phase 4: Attendance Management and Attendance Locking.
+
+Phase 5: Leave Management and Leave Policies.
+
+Phase 6: Salary Components and Salary Structures.
+
+Phase 7: Payroll Processing and Indian Statutory Architecture.
+
+Phase 8: Payslips and Payroll Approval.
+
+Phase 9: Employee Self-Service Portal.
+
+Phase 10: Performance, Targets and Incentives.
+
+Phase 11: Workforce Tasks and Employee Exit Management.
+
+Phase 12: HR Requests, Approvals and Announcements.
+
+Phase 13: HR Dashboards, Reports and Analytics.
+
+Phase 14: HRMS Settings, Permissions and Integration Contracts.
+
+**Do not stop after Phase 1 or wait for approval between phases. Complete all phases in this execution.**
+
+If the context or execution budget is insufficient, save the current implementation state and continue from the exact unfinished phase without restarting or discarding completed work.
+
+# 11. IMPORTANT DEVELOPMENT BOUNDARIES
+
+Do not expand this task into:
+
+- Complete accounting or General Ledger.
+- GST accounting.
+- WhatsApp Business Cloud API.
+- Chatwoot integration.
+- GPS tracking.
+- External ERP integration.
+- Replacement of the existing authentication system.
+- Rebuilding unrelated Jyotsvan modules.
+
+These are separate development responsibilities.
+
+# 12. FINAL DELIVERY REPORT
+
+Once all development phases are completed, provide a consolidated implementation report.
+
+Include:
+
+1. All HRMS modules implemented.
+2. Existing files preserved.
+3. New files created.
+4. Files modified.
+5. Database migration files created or updated.
+6. Tables and relationships designed.
+7. API endpoints implemented.
+8. Frontend pages implemented.
+9. Workflows implemented.
+10. RBAC permissions added.
+11. Payroll architecture and calculation capabilities.
+12. Future accounting handoff contract.
+13. Known limitations.
+14. Features not implemented.
+15. Remaining development tasks.
+
+Clearly distinguish:
+
+- Code implemented.
+- Schema definitions created.
+- Migration files prepared.
+- Live database objects actually created, if verified.
+- Functionality tested.
+- Functionality not yet tested.
+
+Do not claim live database connectivity or successful data persistence without actual verification.
+
+Do not report incomplete features as complete.
+
+**FINAL INSTRUCTION:**
+
+Build the complete Jyotsvan HRMS using the existing project as the foundation.
+
+Implement all defined modules, their frontend interfaces, backend logic, APIs, database schema definitions, migrations, workflows and permissions.
+
+Do not merely produce a plan or documentation.
+
+Do not stop after the audit.
+
+Do not stop after one phase.
+
+Execute the complete development scope, preserve existing working functionality, and provide the consolidated implementation report when finished.

@@ -1,0 +1,1766 @@
+# JYOTSVAN ENTERPRISE PLATFORM
+# OPERATIONS — COMPLETE MASTER IMPLEMENTATION & SYSTEM COMPLETION
+
+## ROLE
+
+Act as a Principal ERP Architect, Manufacturing Systems Architect, Supply Chain Consultant, PostgreSQL Database Architect, Senior Full-Stack Engineer, and Enterprise Application Security Engineer.
+
+You are working on the existing Jyotsvan Enterprise Platform.
+
+Your assignment is to transform the existing Operations subsystem into a complete, integrated, production-oriented Manufacturing, Procurement, Inventory, Warehouse, Quality, and Supply Chain Management System.
+
+This is an implementation task.
+
+**Complete every implementation phase in one continuous execution. Do not stop after individual phases to request approval.**
+
+The existing Operations subsystem already contains substantial working functionality. Preserve and extend it. Do not rebuild the entire subsystem.
+
+---
+
+# 1. NON-NEGOTIABLE PROJECT RULES
+
+1. Inspect the existing codebase and database before implementation.
+2. Preserve the existing technology stack, architecture, design system, authentication, and shared components.
+3. Preserve existing operational records.
+4. Do not rebuild existing modules unnecessarily.
+5. Do not create duplicate business entities or duplicate inventory ledgers.
+6. Reuse existing tables, APIs, services, and components wherever appropriate.
+7. Implement real database-backed functionality, not mock interfaces.
+8. Use proper database transactions for business-critical operations.
+9. Maintain audit trails for stock, procurement, production, QC, and dispatch.
+10. Maintain existing organization-level data isolation.
+11. Strengthen warehouse-level authorization.
+12. Keep the system portable for future local development using Antigravity IDE.
+13. Do not introduce ERPNext, Odoo, or another ERP as a dependency.
+14. Do not implement GPS tracking inside Operations.
+15. Do not duplicate HRMS, CRM, Sales, Finance, or Distribution functionality.
+16. Do not implement General Ledger or full accounting in Operations.
+17. Do not make destructive database changes.
+18. Do not silently alter historical transactions or stock balances.
+
+The existing audit report is a starting reference. Verify its findings against the actual current codebase and database before implementation.
+
+---
+
+# 2. FINAL OPERATIONS NAVIGATION ARCHITECTURE
+
+Build the following 12 sections within Operations.
+
+1. Operations Command Center
+2. Product & Item Master
+3. Procurement & Purchasing
+4. Inventory Management
+5. Warehouse Management
+6. Manufacturing & Production
+7. Batch & Lot Traceability
+8. Quality Control
+9. Dispatch & Fulfilment
+10. Production Planning & MRP
+11. Maintenance & Assets
+12. Operations Reports & Analytics
+
+Keep the existing global Jyotsvan navigation structure intact.
+
+Add or reorganize only the Operations navigation entries required for this architecture.
+
+Do not modify unrelated global modules.
+
+---
+
+# 3. PHASE 1 — OPERATIONS COMMAND CENTER
+
+Route: `/operations/overview`
+
+Create a centralized Operations dashboard using actual database records.
+
+### Dashboard KPIs
+
+**Inventory**
+- Total inventory value.
+- Total SKUs.
+- Raw material stock.
+- Finished goods stock.
+- Work-in-progress stock.
+- Available stock.
+- Reserved stock.
+- Quarantined stock.
+- Low-stock items.
+- Near-expiry batches.
+
+**Procurement**
+- Open purchase requests.
+- Pending purchase approvals.
+- Open purchase orders.
+- Overdue purchase orders.
+- Pending goods receipts.
+- Supplier delivery performance.
+
+**Manufacturing**
+- Active production orders.
+- Planned production.
+- Completed production.
+- Pending production.
+- Production yield.
+- Material wastage.
+- Production delays.
+- Work-in-progress value.
+
+**Quality**
+- Pending inspections.
+- Approved batches.
+- Rejected batches.
+- Quarantined batches.
+- QC rejection percentage.
+- Pending release decisions.
+
+**Warehouse**
+- Warehouse utilization.
+- Bin utilization.
+- Pending transfers.
+- Stock awaiting put-away.
+- Pending picking and packing.
+- Dispatch staging status.
+
+**Maintenance**
+- Active breakdowns.
+- Machines under maintenance.
+- Upcoming preventive maintenance.
+- Machine downtime.
+
+### Dashboard features
+
+- Date-range filtering.
+- Warehouse filtering.
+- Product-category filtering.
+- Production-line filtering.
+- Real-time or refreshable metrics.
+- Recent operational transactions.
+- Alerts and exceptions.
+- Pending approval queues.
+- Drill-down navigation to source records.
+
+Do not use static numbers or hardcoded demo metrics.
+
+---
+
+# 4. PHASE 2 — PRODUCT & ITEM MASTER
+
+Route: `/operations/products`
+
+Preserve and enhance existing products, SKUs, categories, units, and external SKU mappings.
+
+### Product classification
+
+Support:
+
+- Raw Materials.
+- Packaging Materials.
+- Semi-Finished Goods.
+- Finished Goods.
+- Consumables.
+- Spare Parts.
+- Intermediate Products.
+- Other configurable item types.
+
+### Product master features
+
+- Product creation and editing.
+- Product code.
+- SKU.
+- Barcode.
+- Product name.
+- Description.
+- Category.
+- Brand.
+- Product type.
+- Base unit.
+- Alternate units.
+- Unit conversion.
+- Packaging configuration.
+- Weight and dimensions.
+- Minimum order quantity.
+- Reorder level.
+- Safety stock.
+- Maximum stock.
+- Batch tracking requirement.
+- Expiry tracking requirement.
+- Shelf life.
+- Storage requirements.
+- Quality inspection requirements.
+- Technical specifications.
+- Product images.
+- TDS and SDS documents.
+- Product status.
+
+### SKU and packaging matrix
+
+Support multiple SKUs and pack sizes for a single product.
+
+Example:
+
+- Product: Liquid Humic Acid.
+- SKU: 250 ml.
+- SKU: 500 ml.
+- SKU: 1 litre.
+- SKU: 5 litre.
+- SKU: 20 litre.
+
+Maintain accurate conversion relationships between packaging units and base inventory units.
+
+### Additional requirements
+
+- Barcode generation.
+- Barcode scanning support.
+- External channel SKU mapping.
+- Duplicate SKU prevention.
+- Product import/export.
+- Product change history.
+- Product lifecycle management.
+
+Do not duplicate product records that already exist.
+
+---
+
+# 5. PHASE 3 — SUPPLIER MASTER & PROCUREMENT
+
+Route: `/operations/procurement`
+
+Preserve existing supplier, supplier contact, supplier address, supplier pricing, supplier SKU, purchase request, purchase order, and goods receipt functionality.
+
+Enhance the entire procurement lifecycle.
+
+## 5.1 Supplier Management
+
+Support:
+
+- Supplier profile.
+- Supplier code.
+- Contact persons.
+- Addresses and facilities.
+- GSTIN and PAN references.
+- Payment terms.
+- Credit limits.
+- Supplier category.
+- Product catalogue.
+- Contract prices.
+- Minimum order quantities.
+- Price validity.
+- Supplier documents.
+- Supplier performance.
+- Supplier status.
+- Supplier transaction history.
+
+Supplier master remains an Operations-owned vendor record.
+
+Finance owns payable accounting and disbursements.
+
+## 5.2 Purchase Requisitions
+
+Features:
+
+- Create purchase requisition.
+- Add multiple items.
+- Required quantities.
+- Required dates.
+- Warehouse or destination.
+- Purpose.
+- Requested by.
+- Department reference.
+- Approval workflow.
+- Rejection with reason.
+- Requisition history.
+
+## 5.3 RFQ & Supplier Quotations
+
+The audit identifies that RFQ comparison is currently UI-only.
+
+Implement persistent RFQ and quotation functionality.
+
+Features:
+
+- Create RFQ.
+- Select suppliers.
+- Add requested items.
+- Specify quantity and delivery requirements.
+- Send RFQ through configured communication adapters.
+- Record supplier quotations.
+- Record quoted unit prices.
+- Record taxes and additional charges.
+- Record delivery lead time.
+- Record payment terms.
+- Record quotation validity.
+- Compare supplier quotations.
+- Select preferred supplier.
+- Approval workflow.
+- Convert approved quotation into a purchase order.
+
+Create appropriate persistent tables if they do not exist.
+
+## 5.4 Purchase Orders
+
+Features:
+
+- Purchase order creation.
+- Multiple line items.
+- Supplier selection.
+- Tax calculation.
+- Freight and additional charges.
+- Delivery address.
+- Expected delivery date.
+- Payment terms.
+- Approval workflow.
+- Purchase order revisions.
+- Supplier acknowledgement.
+- Partial receipt.
+- Complete receipt.
+- Cancellation.
+- Purchase history.
+
+## 5.5 Goods Receipt Notes
+
+Features:
+
+- Receive against purchase order.
+- Record vehicle and delivery challan.
+- Record received quantity.
+- Record accepted quantity.
+- Record rejected quantity.
+- Record damaged quantity.
+- Record short quantity.
+- Record excess quantity.
+- Record lot and batch references.
+- Generate GRN number.
+- Create incoming QC inspection.
+- Hold unapproved materials in quarantine.
+- Release accepted materials into available inventory after required QC approval.
+
+Prevent duplicate receipts for the same quantities.
+
+## 5.6 Supplier Returns
+
+Complete formal supplier return workflows.
+
+Features:
+
+- Supplier return request.
+- Link to original GRN.
+- Link to rejected or defective batches.
+- Return quantities.
+- Return reasons.
+- Return authorization.
+- Dispatch record.
+- Supplier acknowledgement.
+- Return history.
+
+Finance remains responsible for debit notes, credit adjustments, and accounting entries.
+
+Operations provides the verified return transaction data.
+
+---
+
+# 6. PHASE 4 — INVENTORY MANAGEMENT
+
+Route: `/operations/inventory`
+
+The inventory engine must have a single authoritative stock model.
+
+## 6.1 Inventory source of truth
+
+The existing `inventory_balances` table should be the authoritative current stock balance.
+
+The existing `inventory_movements` table should remain the immutable movement ledger.
+
+Investigate the legacy `inventory_stock` table.
+
+Do not silently delete it or allow independent updates to create conflicting balances.
+
+Prepare a safe reconciliation strategy and preserve historical information.
+
+## 6.2 Inventory functionality
+
+- Stock summary.
+- SKU-wise stock.
+- Product-wise stock.
+- Warehouse-wise stock.
+- Bin-wise stock.
+- Batch-wise stock.
+- Available quantity.
+- Reserved quantity.
+- Quarantined quantity.
+- Damaged quantity.
+- In-transit quantity.
+- Work-in-progress quantity.
+- Expired quantity.
+- Near-expiry quantity.
+
+## 6.3 Inventory transactions
+
+Support:
+
+- Purchase receipt.
+- Production material issue.
+- Production material return.
+- Finished goods receipt.
+- Warehouse transfer.
+- Stock adjustment.
+- Stock reservation.
+- Reservation release.
+- Dispatch.
+- Customer return references.
+- Supplier return.
+- Scrap and wastage.
+
+Every stock movement must:
+
+- Have a unique transaction reference.
+- Record source and destination where applicable.
+- Record quantity and unit.
+- Record batch and warehouse.
+- Record before and after quantities.
+- Record transaction time.
+- Record the authorized user.
+- Have an idempotency key.
+- Maintain an audit trail.
+
+Use transaction-safe stock posting.
+
+Prevent negative available stock unless an explicitly authorized and configurable policy permits it.
+
+## 6.4 Inventory reports
+
+- Stock ledger.
+- Stock balance.
+- Stock valuation reference.
+- Stock ageing.
+- Batch-wise stock.
+- Low stock.
+- Slow-moving stock.
+- Dead stock.
+- Near-expiry stock.
+- Reserved stock.
+- Stock adjustment history.
+
+Finance remains responsible for official accounting valuation and GL posting.
+
+Operations must expose reliable inventory quantity and cost-basis information.
+
+---
+
+# 7. PHASE 5 — WAREHOUSE MANAGEMENT SYSTEM
+
+Route: `/operations/warehouse`
+
+Preserve existing warehouse and warehouse-location architecture.
+
+### Warehouse hierarchy
+
+Support:
+
+- Warehouse.
+- Facility.
+- Zone.
+- Area.
+- Aisle.
+- Rack.
+- Shelf.
+- Bin.
+- Staging location.
+- Quarantine location.
+- Dispatch location.
+
+### Warehouse functionality
+
+- Multiple warehouses.
+- Warehouse configuration.
+- Location capacity.
+- Weight capacity.
+- Volume capacity.
+- Bin utilization.
+- Product storage restrictions.
+- Warehouse assignments.
+- Stock receiving.
+- Put-away suggestions.
+- Internal bin transfers.
+- Picking lists.
+- Packing lists.
+- Dispatch staging.
+- Warehouse transfer orders.
+- Cycle counting.
+- Physical stock reconciliation.
+
+### Put-away engine
+
+After receipt and QC release:
+
+- Determine eligible warehouse locations.
+- Check capacity.
+- Respect product storage requirements.
+- Respect batch and expiry requirements.
+- Suggest suitable bins.
+- Record the actual put-away transaction.
+
+### Picking engine
+
+Support:
+
+- Sales order reference.
+- Warehouse allocation.
+- Batch selection.
+- FEFO picking for expiry-tracked goods.
+- FIFO or configurable picking rules for other stock.
+- Pick list generation.
+- Pick quantity confirmation.
+- Short-pick handling.
+- Picking completion.
+
+### Warehouse security
+
+This is a priority security fix.
+
+Enforce warehouse-level access through backend middleware and database query filters.
+
+Support:
+
+- Assigned warehouse access.
+- Multiple assigned warehouses.
+- Warehouse manager permissions.
+- Central operations administrator access.
+- Authorized inter-warehouse transfer permissions.
+
+The existence of `warehouse_assignments` is not sufficient.
+
+Every relevant API must enforce the actual facility access policy.
+
+Do not rely only on hidden frontend navigation.
+
+---
+
+# 8. PHASE 6 — FORMULATION & BILL OF MATERIALS
+
+Route: `/operations/manufacturing`
+
+The existing formulation UI and backend are already prepared, but the audit reports that database migrations have not been completed.
+
+Activate the manufacturing database foundation safely.
+
+## 8.1 Migration recovery
+
+Inspect:
+
+- `src/server/migrate-formulations.ts`
+- `src/server/migrate-production.ts`
+- `role_permissions`
+- Permission catalog schema.
+- Existing permission IDs.
+- Migration transaction boundaries.
+- Startup migration execution.
+
+The audit suggests a conflict in permission junction inserts.
+
+Independently identify the exact root cause.
+
+Do not blindly change primary keys or delete existing role permissions.
+
+Requirements:
+
+- Idempotent permission insertion.
+- Safe handling of duplicate permission mappings.
+- Correct transaction boundaries.
+- No concurrent startup race.
+- Consistent migration locking.
+- Clear rollback behavior.
+- Existing permission preservation.
+
+After resolving the actual issue, execute the required migrations only if the current environment safely supports it.
+
+Verify every created table against the live PostgreSQL schema.
+
+## 8.2 Formulation management
+
+Support:
+
+- Formulation master.
+- Formulation code.
+- Version.
+- Product association.
+- Ingredients.
+- Ingredient quantities.
+- Base batch size.
+- Expected yield.
+- Standard wastage.
+- Processing instructions.
+- Equipment references.
+- Mixing parameters.
+- Quality parameters.
+- Approval status.
+- Effective date.
+- Version comparison.
+- Version history.
+
+## 8.3 BOM functionality
+
+Support:
+
+- Single-level BOM.
+- Multi-level BOM.
+- Ingredient quantities.
+- Packaging components.
+- Alternate ingredients.
+- Approved substitutions.
+- Unit conversions.
+- Expected yield.
+- Standard wastage.
+- Scrap allowances.
+- BOM revision.
+- BOM approval.
+- Effective dates.
+
+Preserve and use the existing circular dependency detection.
+
+Do not allow circular BOM dependencies.
+
+## 8.4 Batch scaling workbench
+
+Support:
+
+- Base formulation quantity.
+- Target production quantity.
+- Automatic ingredient scaling.
+- Unit conversions.
+- Expected output.
+- Expected wastage.
+- Actual versus planned consumption.
+- Scaling validation.
+- Save as production plan.
+
+Preserve existing linear recipe scaling logic, improving it where needed without breaking existing behavior.
+
+---
+
+# 9. PHASE 7 — MANUFACTURING EXECUTION SYSTEM
+
+Route: `/operations/production`
+
+Activate the existing production schema and backend.
+
+The audit identifies these pending tables:
+
+- formulations
+- formulation_components
+- formulation_substitutions
+- formulation_costings
+- production_plans
+- production_orders
+- production_order_components
+- production_order_outputs
+- production_order_wastage
+- production_order_status_history
+
+Inspect existing migrations and types before creating or altering anything.
+
+Do not create duplicate tables if they already exist.
+
+## 9.1 Production planning
+
+- Production plan creation.
+- Product selection.
+- Planned quantity.
+- Required date.
+- Target warehouse.
+- Formulation selection.
+- BOM selection.
+- Material requirement calculation.
+- Material availability.
+- Shortage identification.
+- Production priority.
+- Plan approval.
+
+## 9.2 Work orders
+
+- Generate work order.
+- Work order number.
+- Product.
+- Formulation version.
+- Planned quantity.
+- Target output.
+- Production line.
+- Assigned operators.
+- Start date.
+- Target completion date.
+- Planned materials.
+- Required equipment.
+- Work order status.
+
+Statuses should support:
+
+- Draft.
+- Awaiting Approval.
+- Approved.
+- Materials Pending.
+- Ready.
+- In Progress.
+- On Hold.
+- Completed.
+- Cancelled.
+
+## 9.3 Material issue
+
+- Check available stock.
+- Reserve required materials.
+- Select eligible batches.
+- Use FEFO where appropriate.
+- Generate material issue slip.
+- Record issued quantity.
+- Record batch references.
+- Post stock issue movement.
+- Prevent unauthorized material issue.
+
+## 9.4 Shop floor execution
+
+Create a functional Shop Floor Console.
+
+Support:
+
+- Work order queue.
+- Production instructions.
+- Material checklist.
+- Operator assignment.
+- Production start.
+- Production pause.
+- Production resume.
+- Production completion.
+- Actual consumption.
+- Actual output.
+- Rejected quantity.
+- Wastage.
+- Downtime reason.
+- Production remarks.
+- Supervisor approval.
+
+## 9.5 Production completion
+
+On completion:
+
+- Record actual material consumption.
+- Record material returns.
+- Record finished output.
+- Record rejected output.
+- Record scrap and wastage.
+- Generate finished-goods batch.
+- Record batch genealogy.
+- Create QC inspection.
+- Place output in quarantine or QC-pending status where required.
+- Release stock only after required quality approval.
+
+Do not make uninspected output available for normal dispatch.
+
+## 9.6 Production analytics
+
+- Planned versus actual production.
+- Production yield.
+- Material variance.
+- Wastage percentage.
+- Rejection rate.
+- Production cycle time.
+- Work order completion time.
+- Production efficiency.
+
+---
+
+# 10. PHASE 8 — BATCH & LOT TRACEABILITY
+
+Route: `/operations/batches`
+
+Preserve existing batch and genealogy architecture.
+
+Enhance:
+
+- Batch master.
+- Automatic batch numbering.
+- Raw material batches.
+- Finished goods batches.
+- Manufacturing date.
+- Expiry date.
+- Retest date.
+- Best-before date.
+- Shelf life.
+- Batch status.
+- Batch quality status.
+- Quarantine.
+- Batch holds.
+- Batch release.
+- Batch transfer.
+- Batch genealogy.
+- Batch consumption history.
+- Batch recall.
+
+### Traceability
+
+Support two directions:
+
+**Forward traceability**
+
+Raw material batch → Production order → Finished goods batch → Warehouse → Dispatch → Sales order reference.
+
+**Backward traceability**
+
+Finished goods batch → Consumed ingredients → Raw material batches → Original GRNs → Supplier.
+
+### Recall management
+
+Create a recall workflow:
+
+- Recall initiation.
+- Reason.
+- Affected batch.
+- Parent and child batch discovery.
+- Warehouse stock identification.
+- Dispatched quantity identification.
+- Affected order references.
+- Recall approval.
+- Recall action history.
+- Closure report.
+
+Never remove historical batch relationships.
+
+---
+
+# 11. PHASE 9 — QUALITY MANAGEMENT SYSTEM
+
+Route: `/operations/quality`
+
+Preserve the existing QC templates, parameters, inspections, inspection items, and decisions.
+
+Expand them into a complete Quality Management System.
+
+## 11.1 Incoming Quality Control
+
+- Supplier material inspection.
+- GRN-linked inspection.
+- Sampling.
+- Inspection templates.
+- Parameter values.
+- Acceptance limits.
+- Pass/fail evaluation.
+- Accepted quantity.
+- Rejected quantity.
+- Conditional approval where policy permits.
+- Quarantine management.
+
+## 11.2 In-process Quality Control
+
+- Production-linked inspections.
+- Sampling frequency.
+- Stage-wise quality checks.
+- pH.
+- Specific gravity.
+- Appearance.
+- Moisture.
+- Active ingredient concentration.
+- Other configurable parameters.
+- Inspection history.
+
+## 11.3 Finished Goods Quality Control
+
+- Finished batch inspection.
+- Product specifications.
+- Sampling.
+- Test results.
+- Acceptance criteria.
+- Quality approval.
+- Rejection.
+- Rework.
+- Quarantine.
+- Release authorization.
+
+## 11.4 Quality documentation
+
+- Certificate of Analysis.
+- Inspection reports.
+- Technical documents.
+- Quality certificates.
+- Supplier quality documents.
+- Batch quality history.
+
+## 11.5 Non-conformance and CAPA
+
+Implement:
+
+- Non-conformance reports.
+- Root cause analysis.
+- Corrective actions.
+- Preventive actions.
+- Responsible person.
+- Target dates.
+- Verification.
+- Closure approval.
+- CAPA history.
+
+Quality decisions must be auditable.
+
+Do not allow unauthorized users to release quarantined inventory.
+
+---
+
+# 12. PHASE 10 — DISPATCH & FULFILMENT HUB
+
+Route: `/operations/dispatch`
+
+The audit identifies dispatch functionality inside Sales Orders but no complete standalone operational dispatch workspace.
+
+Build a dedicated Dispatch & Fulfilment module without replacing Sales order management.
+
+## 12.1 Dispatch planning
+
+- View approved Sales orders ready for fulfilment.
+- Check available stock.
+- Check reservations.
+- Identify eligible batches.
+- Allocate warehouse.
+- Generate pick list.
+- Track fulfilment progress.
+- Support partial fulfilment.
+- Handle shortages.
+
+Sales remains the owner of Sales orders.
+
+## 12.2 Picking and packing
+
+- Pick list.
+- Batch-wise picking.
+- FEFO selection.
+- Pick confirmation.
+- Short-pick reasons.
+- Packing list.
+- Carton and pallet details.
+- Package dimensions.
+- Package weight.
+- Number of cartons.
+- Packing remarks.
+- Packing verification.
+
+## 12.3 Dispatch creation
+
+Preserve existing `sales_order_dispatches` and `sales_order_dispatch_items`.
+
+Support:
+
+- Dispatch number.
+- Sales order reference.
+- Customer delivery destination reference.
+- Warehouse.
+- Dispatch date.
+- Transporter.
+- Vehicle number.
+- Driver details where required.
+- LR number.
+- Tracking number.
+- E-Way Bill reference.
+- Number of cartons.
+- Dispatch quantities.
+- Batch details.
+- Dispatch documents.
+
+## 12.4 Delivery management
+
+- Delivery status.
+- Partial delivery.
+- Delivered quantity.
+- Shortage.
+- Damaged goods.
+- Failed delivery.
+- Delivery remarks.
+- Proof of delivery.
+- Delivery documents.
+- Return-to-origin references.
+- Delivery history.
+
+Create appropriate delivery-note and delivery-event records where needed.
+
+## 12.5 Dispatch status
+
+Support:
+
+- Pending Picking.
+- Picking.
+- Packing.
+- Ready for Dispatch.
+- Dispatched.
+- In Transit.
+- Partially Delivered.
+- Delivered.
+- Failed Delivery.
+- Returned.
+
+Do not reduce stock twice when dispatch and delivery events are recorded.
+
+Inventory posting rules must clearly distinguish dispatch from delivery confirmation.
+
+---
+
+# 13. PHASE 11 — MATERIAL REQUIREMENTS PLANNING (MRP)
+
+Route: `/operations/planning`
+
+Build a proper MRP engine.
+
+This is currently missing and must not remain a simple material availability check inside individual work orders.
+
+## 13.1 Demand inputs
+
+Consider:
+
+- Approved production plans.
+- Confirmed Sales order demand.
+- Existing work orders.
+- Forecast demand where supported.
+- Minimum stock.
+- Safety stock.
+- Reorder levels.
+- Lead times.
+
+Do not use unapproved opportunities as confirmed production demand.
+
+CRM forecast information may be consumed only as a clearly identified planning signal.
+
+## 13.2 BOM explosion
+
+Implement multi-level BOM explosion.
+
+For each production requirement:
+
+- Calculate required finished goods.
+- Expand BOM components.
+- Apply unit conversions.
+- Account for expected yield.
+- Account for standard wastage.
+- Consider approved substitutions.
+- Aggregate common material requirements.
+
+Prevent circular dependencies.
+
+## 13.3 Net material requirements
+
+Calculate:
+
+Gross requirement  
+− Available stock  
+− Eligible inbound purchase quantities  
+− Valid existing reservations  
+= Net requirement.
+
+Ensure reservations and in-transit stock are treated according to configurable planning policies.
+
+Do not count the same supply twice.
+
+## 13.4 Supply planning
+
+Use:
+
+- Supplier lead times.
+- Supplier price references.
+- Minimum order quantities.
+- Purchase multiples.
+- Safety stock.
+- Required dates.
+- Existing purchase orders.
+
+Identify:
+
+- Material shortages.
+- Expected shortage dates.
+- Suggested purchase quantities.
+- Suggested order dates.
+- Delayed materials.
+- Production risks.
+
+## 13.5 MRP output
+
+Generate:
+
+- Material requirement report.
+- Shortage report.
+- Suggested purchase requisitions.
+- Suggested production orders.
+- Supply-demand pegging.
+- Planned order dates.
+- Exception messages.
+
+Suggested purchase requisitions must remain drafts until authorized users approve them.
+
+## 13.6 Capacity planning
+
+Prepare basic capacity planning for:
+
+- Production lines.
+- Machines.
+- Available production hours.
+- Planned production duration.
+- Machine availability.
+- Maintenance downtime.
+- Operator capacity references.
+
+Do not introduce GPS or an independent employee management system.
+
+---
+
+# 14. PHASE 12 — PLANT MAINTENANCE & ASSET MANAGEMENT
+
+Route: `/operations/maintenance`
+
+This entire subsystem is currently missing according to the audit.
+
+Build it from the ground up.
+
+## 14.1 Equipment & Machine Master
+
+Create:
+
+- Machine master.
+- Equipment code.
+- Machine name.
+- Machine category.
+- Manufacturer.
+- Model.
+- Serial number.
+- Purchase date reference.
+- Installation date.
+- Production line.
+- Warehouse/facility.
+- Capacity.
+- Operating parameters.
+- Maintenance frequency.
+- Warranty details.
+- Asset status.
+- Technical documents.
+
+## 14.2 Preventive Maintenance
+
+Support:
+
+- Maintenance schedules.
+- Daily checks.
+- Weekly checks.
+- Monthly checks.
+- Runtime-based schedules where supported.
+- Maintenance checklists.
+- Required spare parts.
+- Assigned technician.
+- Planned date.
+- Completion date.
+- Supervisor approval.
+- Maintenance history.
+
+## 14.3 Breakdown Management
+
+Support:
+
+- Breakdown ticket.
+- Machine selection.
+- Problem description.
+- Breakdown severity.
+- Reported by.
+- Reported time.
+- Production impact.
+- Assigned technician.
+- Diagnosis.
+- Repair action.
+- Spare parts used.
+- Downtime start.
+- Downtime end.
+- Resolution.
+- Supervisor approval.
+
+## 14.4 Spare Parts Inventory
+
+Use the existing Product & Inventory system.
+
+Spare parts must be existing item master records.
+
+Spare part consumption must post through the existing inventory movement engine.
+
+Do not create a separate spare-parts stock ledger.
+
+## 14.5 Maintenance analytics
+
+- Machine availability.
+- Breakdown frequency.
+- Downtime hours.
+- Preventive maintenance compliance.
+- Maintenance cost references.
+- Spare parts consumption.
+- Mean Time Between Failures.
+- Mean Time To Repair.
+- Maintenance backlog.
+
+## 14.6 OEE foundation
+
+Prepare an OEE calculation engine based on:
+
+- Availability.
+- Performance.
+- Quality.
+
+Use actual production and downtime records.
+
+Clearly identify missing inputs rather than presenting fabricated OEE values.
+
+---
+
+# 15. PHASE 13 — OPERATIONS REPORTS & ANALYTICS
+
+Route: `/operations/reports`
+
+Create database-backed reports.
+
+### Procurement reports
+- Purchase register.
+- Supplier comparison.
+- Purchase price history.
+- Purchase delivery performance.
+- Pending purchase orders.
+- GRN report.
+- Supplier returns.
+
+### Inventory reports
+- Stock ledger.
+- Stock balance.
+- Stock ageing.
+- Stock valuation reference.
+- Batch stock.
+- Near-expiry stock.
+- Reorder report.
+- Stock movement.
+- Inventory adjustments.
+
+### Warehouse reports
+- Warehouse utilization.
+- Bin utilization.
+- Transfer register.
+- Cycle count variance.
+- Picking performance.
+- Packing performance.
+- Warehouse productivity.
+
+### Manufacturing reports
+- Production register.
+- Work order status.
+- Production plan versus actual.
+- BOM consumption variance.
+- Production yield.
+- Wastage.
+- Rejection.
+- Batch output.
+- Production cycle time.
+
+### Quality reports
+- QC inspection register.
+- Supplier rejection.
+- In-process quality.
+- Finished goods quality.
+- Non-conformance.
+- CAPA.
+- Batch quality history.
+
+### Dispatch reports
+- Dispatch register.
+- Pending dispatch.
+- Delivery performance.
+- Partial delivery.
+- Transporter performance.
+- Shortage and damage.
+- Proof of delivery status.
+
+### Maintenance reports
+- Equipment register.
+- Maintenance schedule.
+- Breakdown register.
+- Downtime.
+- Spare parts usage.
+- Maintenance compliance.
+- OEE.
+
+Requirements:
+
+- Date filters.
+- Warehouse filters.
+- Product filters.
+- Supplier filters.
+- Batch filters.
+- Production-line filters.
+- Export to CSV/Excel where supported.
+- Role-based access.
+- Drill-down to transaction records.
+
+---
+
+# 16. PHASE 14 — APPROVALS & OPERATIONAL WORKFLOWS
+
+Build a consistent operational approval framework using the existing Jyotsvan permission and notification infrastructure.
+
+Support approvals for:
+
+- Purchase requisitions.
+- Purchase orders.
+- Supplier quotations.
+- Stock adjustments.
+- Stock write-offs.
+- Warehouse transfers.
+- Production plans.
+- Production orders.
+- Formulation revisions.
+- QC release.
+- Batch release.
+- Supplier returns.
+- Maintenance closure.
+
+Requirements:
+
+- Approval rules.
+- Role-based approval.
+- Configurable approval thresholds.
+- Multi-level approval where necessary.
+- Approve/reject.
+- Rejection reason.
+- Approval history.
+- Delegation only where authorized.
+- Pending approval inbox.
+- Notifications.
+- Escalation rules.
+
+Never allow an unauthorized user to approve their own restricted transaction.
+
+Use existing notifications rather than building a duplicate notification engine.
+
+---
+
+# 17. PHASE 15 — DATABASE & DATA INTEGRITY
+
+Before adding any table:
+
+1. Inspect the live schema.
+2. Identify existing equivalent tables.
+3. Reuse existing tables where possible.
+4. Create new tables only for genuinely missing functionality.
+5. Follow existing naming and migration conventions.
+
+Important existing tables identified by the audit include:
+
+**Products**
+- products
+- skus
+- categories
+- units
+- external_sku_mappings
+- product_images
+- product_documents
+
+**Procurement**
+- suppliers
+- supplier_contacts
+- supplier_addresses
+- supplier_prices
+- supplier_skus
+- purchase_requests
+- purchase_request_items
+- purchase_orders
+- purchase_order_items
+- goods_receipts
+- goods_receipt_items
+
+**Inventory**
+- inventory_balances
+- inventory_movements
+- stock_reservations
+- stock_adjustments
+- stock_count_sessions
+- stock_count_items
+
+**Warehouse**
+- warehouses
+- warehouse_locations
+- warehouse_assignments
+- warehouse_transfers
+- warehouse_transfer_items
+
+**Quality**
+- qc_templates
+- qc_parameters
+- qc_template_parameters
+- qc_inspections
+- qc_inspection_items
+- qc_decisions
+- qc_documents
+
+**Batch**
+- batches
+- batch_genealogy
+- batch_holds
+- batch_status_logs
+- batch_numbering_rules
+
+**Dispatch**
+- sales_order_dispatches
+- sales_order_dispatch_items
+
+**Manufacturing**
+Inspect the pending formulation and production migration definitions before applying them.
+
+All new tables must have appropriate:
+
+- Primary keys.
+- Foreign keys.
+- Indexes.
+- Unique constraints.
+- Organization references.
+- Audit timestamps.
+- Created-by references.
+- Status constraints.
+- Transaction boundaries.
+
+Maintain historical records.
+
+Do not silently delete or rewrite existing records.
+
+---
+
+# 18. PHASE 16 — CROSS-MODULE INTEGRATION
+
+Maintain strict module ownership.
+
+## CRM
+
+CRM owns:
+- Leads.
+- Commercial prospects.
+- Relationship history.
+- Opportunities.
+
+Operations may consume approved planning signals but must not recreate CRM records.
+
+## Sales
+
+Sales owns:
+- Sales orders.
+- Customer order commitments.
+- Order pricing and commercial approval.
+
+Operations consumes approved Sales orders for stock reservation, picking, packing, dispatch, and fulfilment.
+
+Do not create a second Sales order system.
+
+## Finance
+
+Finance owns:
+- General Ledger.
+- Accounting.
+- Accounts Payable.
+- Accounts Receivable.
+- Debit notes.
+- Credit notes.
+- Official accounting reports.
+
+Operations supplies verified:
+- GRNs.
+- Purchase transaction references.
+- Inventory movements.
+- Material consumption.
+- Production output.
+- Cost-basis information.
+- Dispatch information.
+- Supplier return records.
+
+Do not post General Ledger entries from Operations.
+
+## Distribution
+
+Distribution owns:
+- Distributor and C&F partner relationships.
+- Distribution network management.
+- Distributor operations.
+
+Operations handles physical stock movements and warehouse dispatch.
+
+Do not duplicate distributor management.
+
+## HRMS
+
+HRMS owns:
+- Employee records.
+- Attendance.
+- Payroll.
+- Employee management.
+
+Operations may reference employee IDs and assigned operators.
+
+Do not create another employee master.
+
+## Field Sales
+
+Field Sales owns GPS and beat tracking.
+
+Operations must not implement GPS tracking.
+
+## Shopify and Marketplaces
+
+Use existing product and SKU mappings.
+
+Do not rebuild marketplace integrations.
+
+---
+
+# 19. PHASE 17 — SECURITY & PERMISSIONS
+
+Integrate all Operations functionality with the existing RBAC engine.
+
+Create granular capabilities for:
+
+- View products.
+- Manage products.
+- View suppliers.
+- Manage suppliers.
+- Create requisitions.
+- Approve requisitions.
+- Manage purchase orders.
+- Receive goods.
+- Approve GRNs.
+- View inventory.
+- Adjust inventory.
+- Reserve stock.
+- Transfer stock.
+- Manage warehouses.
+- Manage bins.
+- View formulations.
+- Manage formulations.
+- Approve formulations.
+- Create production plans.
+- Approve production.
+- Execute work orders.
+- Complete production.
+- Manage batches.
+- Place batch holds.
+- Release batches.
+- Inspect quality.
+- Approve quality.
+- Manage dispatch.
+- Confirm delivery.
+- Manage MRP.
+- Manage equipment.
+- Approve maintenance.
+- View operational reports.
+
+Enforce permissions at API and database query level.
+
+### Critical warehouse access requirement
+
+Fix the identified facility-level access weakness.
+
+For every warehouse-scoped operation:
+
+- Validate the authenticated user.
+- Validate organization scope.
+- Validate warehouse assignment.
+- Validate required permission.
+- Validate source and destination warehouse access.
+- Validate transfer authorization.
+
+Never trust warehouse IDs supplied by the browser.
+
+### Critical database query route
+
+Inspect `/api/db/query`.
+
+Remove it from production exposure or restrict it strictly to an appropriately authenticated and authorized administrative migration mechanism.
+
+Never allow general users to execute arbitrary SQL.
+
+Do not weaken existing security policies.
+
+---
+
+# 20. PHASE 18 — TESTING & VERIFICATION
+
+Implement and run safe tests for:
+
+### Products
+- Product creation.
+- SKU uniqueness.
+- Unit conversions.
+- Barcode mapping.
+
+### Procurement
+- Purchase request.
+- Approval.
+- RFQ.
+- Supplier quotation comparison.
+- PO creation.
+- Partial GRN.
+- QC rejection.
+- Supplier return.
+
+### Inventory
+- Receipt posting.
+- Stock reservation.
+- Stock issue.
+- Stock transfer.
+- Stock adjustment.
+- Duplicate transaction prevention.
+- Balance reconciliation.
+
+### Warehouse
+- Put-away.
+- Picking.
+- Packing.
+- Bin capacity.
+- Warehouse access restrictions.
+- Inter-warehouse transfers.
+
+### Manufacturing
+- Formulation migration.
+- BOM creation.
+- Circular dependency prevention.
+- Batch scaling.
+- Production planning.
+- Work order creation.
+- Material issue.
+- Production completion.
+- Finished goods QC.
+- Wastage recording.
+
+### Batch traceability
+- Batch numbering.
+- Genealogy.
+- Quarantine.
+- Release.
+- Forward trace.
+- Backward trace.
+- Recall.
+
+### Dispatch
+- Picking.
+- Packing.
+- Partial dispatch.
+- Full dispatch.
+- Delivery events.
+- Duplicate stock posting prevention.
+
+### MRP
+- BOM explosion.
+- Gross requirement.
+- Net requirement.
+- Existing reservation handling.
+- Purchase lead times.
+- Suggested purchase requests.
+- Capacity constraints.
+
+### Maintenance
+- Equipment creation.
+- Maintenance schedule.
+- Breakdown ticket.
+- Downtime.
+- Spare part consumption.
+
+### Security
+- Unauthorized warehouse access.
+- Unauthorized stock adjustment.
+- Unauthorized QC release.
+- Unauthorized production completion.
+- Cross-organization access.
+- Unauthorized API operations.
+
+Use isolated test data and an isolated test environment wherever possible.
+
+Never execute destructive tests against production records.
+
+---
+
+# 21. IMPLEMENTATION EXECUTION ORDER
+
+Complete the following phases in order, without pausing for approval.
+
+1. Codebase and database verification.
+2. Migration recovery and manufacturing table activation.
+3. Inventory source-of-truth verification and reconciliation.
+4. Operations Command Center.
+5. Product and Item Master refinement.
+6. Procurement and RFQ completion.
+7. Inventory completion.
+8. Warehouse access security and WMS improvements.
+9. Formulation and BOM completion.
+10. Manufacturing Execution System.
+11. Batch and Traceability enhancements.
+12. Quality Management System.
+13. Dispatch and Fulfilment Hub.
+14. MRP engine.
+15. Maintenance and Assets.
+16. Reports and Analytics.
+17. Approval workflows.
+18. Cross-module integrations.
+19. Security testing and E2E verification.
+20. Final documentation.
+
+Do not stop after generating database schemas or frontend screens.
+
+Implement the backend and actual business workflows.
+
+---
+
+# 22. FINAL IMPLEMENTATION REPORT
+
+After completing the task, provide:
+
+1. Executive summary.
+2. Final Operations navigation structure.
+3. Existing modules reused.
+4. New modules implemented.
+5. Database tables reused.
+6. Database tables created.
+7. Migrations successfully applied.
+8. Migration issues fixed.
+9. Backend APIs implemented.
+10. Frontend pages implemented.
+11. Business workflows implemented.
+12. RBAC permissions created.
+13. Warehouse access restrictions implemented.
+14. Inventory reconciliation results.
+15. Cross-module integrations.
+16. Automated tests executed.
+17. Test results.
+18. Known limitations.
+19. Features awaiting credentials.
+20. Remaining technical risks.
+21. Local deployment instructions.
+
+For each feature, distinguish:
+
+- Implemented in code.
+- Database migration prepared.
+- Migration applied.
+- Database operation verified.
+- End-to-end tested.
+- Awaiting external credentials.
+- Blocked.
+
+Do not claim a feature is fully operational just because its UI or backend code exists.
+
+Do not claim migration success without checking the actual database.
+
+Do not hide failed tests or unresolved issues.
+
+---
+
+# FINAL OBJECTIVE
+
+Build Jyotsvan Operations as a unified enterprise execution system covering:
+
+**Product Master → Procurement → Goods Receipt → Quality Inspection → Warehouse → Inventory → MRP → Production Planning → Manufacturing → Batch Traceability → Finished Goods QC → Dispatch → Delivery → Maintenance → Operational Analytics.**
+
+Preserve all existing Jyotsvan functionality.
+
+Maintain strict ownership boundaries with CRM, Sales, Finance, Distribution, HRMS, and Field Sales.
+
+Maintain one authoritative inventory engine.
+
+Ensure all critical transactions are auditable, permission-controlled, and database-backed.
+
+Complete all implementation phases in one continuous execution and provide a truthful final verification report.
