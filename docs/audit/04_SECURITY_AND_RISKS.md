@@ -1,3 +1,5 @@
+> **Status update 2026-11-05.** C1-C5, H1-H3, H5 (corrected: verification existed but could be skipped), H6, H7, H9 (identity) and the Meta callback XSS are fixed and tested; see `docs/engineering/KNOWN_ISSUES.md` for the resolved/open table and `docs/engineering/SECURITY_ARCHITECTURE.md` for the current design. Still open: PII encryption (H8), SSRF guard coverage (M4), simulated integration fallbacks, rate limiting across instances, live-database verification.
+
 # 04 — Security and Risk Review (Step 5)
 
 Static review only; no exploit attempted, nothing run against live systems. Secret values are masked (first 4 chars). **No real production secrets were found committed** — the "secret-like" strings found are demo/seed values (listed below). Severity: Critical = can lead to full data compromise or fake identity; High; Medium; Low.

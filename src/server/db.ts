@@ -1,4 +1,5 @@
 import { Pool } from 'pg';
+import { installTenantAwarePool } from './core/rls-pool.ts';
 
 const connectionString =
   process.env.INSFORGE_DATABASE_URL ||
@@ -39,6 +40,9 @@ export const pool = new Pool({
   idleTimeoutMillis: 60000,
   connectionTimeoutMillis: 30000,
 });
+
+// Opt-in row-level-security support: tag each connection with the request's tenant (see core/rls-pool.ts).
+if (process.env.RLS_ENABLED === 'true') installTenantAwarePool(pool);
 
 export async function query(text: string, params?: any[]) {
   const start = Date.now();

@@ -1,41 +1,42 @@
 # SECURITY_ARCHITECTURE
 
-Findings are from static review (2026-11-04). No exploit was attempted; nothing was run against a live DB.
+Current state after the 2026-11-05 hardening. History of what was wrong: `docs/audit/04_SECURITY_AND_RISKS.md` and `KNOWN_ISSUES.md`.
 
-## Intended design (docs + client code)
-InsForge login -> `AuthContext` -> `/api/auth/profile` returns roles + permission codes -> `accessControl.hasPermission()` gates UI routes (`config/navigation.ts` maps path -> permission). Multi-tenant by `organization_id`.
+## Request pipeline (every `/api` request)
+```
+helmet (HSTS, nosniff, frame-ancestors, CSP report-only in prod)
+ -> JSON body (raw bytes kept for webhook signatures)
+ -> PUBLIC: GET /api/health, POST /api/auth/{login,refresh,logout}, signed webhooks, CRM ingest (key), Meta OAuth return
+ -> authenticate        verify JWT (HS256, issuer/audience, expiry) + live session + live user status
+ -> enforceTenantContext overwrite tenant/actor headers, query and body with the verified session; run the rest inside the tenant's DB context
+ -> enforcePermissions  deny by default: route -> permission module (src/server/core/permission-map.ts), GET=view, write=create|edit, DELETE=delete, approve verbs=approve
+ -> router/service
+```
+`tests/unit/permission-map.test.ts` fails if any mounted route is neither public, authenticated-only, nor mapped.
 
-## Actual enforcement
-| Layer | State |
-|---|---|
-| Authentication on API | **None.** No middleware verifies a session/JWT on any route. `express.json` is the only `app.use` before routers. |
-| Authorization (RBAC) | **Client-side only.** Zero `requirePermission`-style checks in 30 routers. |
-| Tenant isolation | **Client-asserted.** `organizationId` query param, `x-organization-id` header, or fallback to first org / `'org-jyotsvan-corp'`. Any caller can pick any tenant. |
-| Actor identity | Client-asserted (`x-user-email`, `x-user-id`; default `admin@jyotsvan.enterprise`), so audit logs are forgeable. |
-| DB RLS | None declared anywhere (`grep ROW LEVEL SECURITY` empty). |
+## Identity
+- Passwords: scrypt (N=16384), policy (10+ chars, mixed, not common, not containing the email name), constant-time verify, same error for unknown user and wrong password.
+- Sessions: 15-minute access token (memory only in the browser) + 30-day rotating refresh token in an `httpOnly; SameSite=Strict; Path=/api/auth` cookie (`Secure` in production). Refresh requires a custom header (CSRF). Reuse of an old refresh token revokes the session. Logout, deactivation, role change and password change invalidate sessions/caches immediately.
+- Lockout: 5 failures -> 15 minutes; per-IP rate limit on login/refresh/change-password.
+- Admin-issued passwords are temporary (`must_change_password`): the API blocks everything except `/api/auth/*` until changed.
 
-`batch-routes.ts` has a `resolveAuth` helper but it still trusts the header and picks an arbitrary user of the org — it is not authentication.
+## Authorization
+- Permission codes `module.action` (view/create/edit/delete/approve/manage); super admin (`is_super_admin` or `*:*`) bypasses. Payroll is its own module.
+- Admin API rules (`core/admin-routes.ts`): no privilege escalation (cannot grant permissions you lack, cannot create/modify super admins or assign the super-admin role unless super admin), no self-lockout/self-delete, system roles protected, every change audited.
+- AI tools: permissions come only from the session; role *names* grant nothing.
 
-## Critical findings
-- **S-1 Arbitrary SQL**: `POST /api/db/query` (server.ts:274) executes caller-supplied SQL with the server's DB credentials, unauthenticated. Full read/write/DDL on the production database.
-- **S-2 Unauthenticated migrations**: `ALL /api/db/init` (server.ts:389) runs every migration/seed; GET-able.
-- **S-3 Unauthenticated data dump**: `/api/insforge/health` and `/api/db/status` list every table with row counts, RLS flags, auth user count; `/api/auth/profile?email=` returns user + roles + permissions for any email (user enumeration).
-- **S-4 No authz on ~580 handlers** (people/payroll, finance, integrations credentials management, AI actions "approve/execute").
-- **S-5 Hard-coded encryption key fallback** (`crypto-vault.ts:6`) used to encrypt integration credentials; salt also constant. Without `ENCRYPTION_SECRET` all stored provider secrets are decryptable by anyone with the repo.
-- **S-6 TLS verification off**: `db.ts` `ssl: { rejectUnauthorized:false }` (MITM risk).
-- **S-7 Browser-exposed env**: only `VITE_`-prefixed vars reach the bundle (project id, API URL, anon key) which is acceptable; service-role key and DB URL are server-only. Re-check any new `VITE_` additions.
+## Tenant isolation
+1. Application layer: tenant is forced from the session (above).
+2. Database layer (opt-in, tested): PostgreSQL RLS on every table with `organization_id`, driven by `app.tenant_id` set per connection and cleared on release; no context = no rows. Requires a restricted DB role (runbook §6). **Disabled by default.**
 
-## Other risks
-- 25 `pool.query` calls built with template literals (potential SQL injection where interpolating non-constant values); needs triage: `grep -rnE "query\(\`[^\`]*\\$\{" src/server`.
-- No `helmet`, CORS policy, rate limiting, request-size policy beyond 10 MB JSON, or CSRF consideration; AI endpoints unthrottled (cost abuse).
-- Outbound integration calls: `validateSafeUrl()` exists in `integrations/` (SSRF guard) — verify coverage on all webhook/base-URL inputs.
-- Integration clients silently fall back to **simulated sessions** when credentials are dummy/absent (Amazon, Flipkart, Meta, Myntra) — risk of believing live sync works.
-- Default seed users/passwords: not inspected in depth; `seed.ts`/`db.ts` insert users — confirm no default credentials in production.
+## Secrets and transport
+- `SESSION_SECRET`, `ENCRYPTION_SECRET` mandatory in production (process exits otherwise). Only `VITE_*` reaches the browser.
+- DB TLS verified; dev opt-out refused in production.
+- Integration credentials AES-256-GCM encrypted at rest; webhook secrets used as HMAC keys; webhooks fail closed.
+- Public HTML endpoint (Meta OAuth return) escapes all input, sets its own CSP, posts to same origin only.
 
-## Required remediation order (not implemented here)
-1. Remove or lock `/api/db/query`, `/api/db/init`, `/api/db/status`, `/api/insforge/health`.
-2. Add auth middleware: validate InsForge JWT server-side, derive `req.auth = {userId, orgId, permissions}`; delete all client-supplied org/actor inputs.
-3. Add `requirePermission(code)` per route group using `navigation.ts`/PERMISSIONS.md mapping.
-4. Enforce `ENCRYPTION_SECRET` at boot (fail closed); rotate any credentials stored under the fallback key.
-5. Turn on TLS verification; add helmet, CORS allowlist, rate limits.
-6. Enable PostgreSQL RLS as defense in depth after (2).
+## Audit
+Single writer `core/audit.ts` (actor/tenant from the session). Login, failed login, logout, password change/reset, user and role administration are logged. Other routers still use their own per-router audit helpers reading the (now trustworthy) forced identity headers.
+
+## Not yet done
+Field-level encryption/masking of PAN/UAN/bank data; per-tenant webhook secrets for CRM intake; SSRF guard on all outbound URLs (only the custom REST adapter has it); 2FA/OTP; shared-store rate limiting; append-only audit table with DB-level denial of UPDATE/DELETE; Meta OAuth state signing; penetration test.

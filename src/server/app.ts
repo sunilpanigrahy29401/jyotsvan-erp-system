@@ -33,7 +33,9 @@ import { reportsRouter } from './reports-routes.ts';
 import { aiRouter } from './ai-routes.ts';
 import { crmRouter } from './crm-routes.ts';
 import { authRouter } from './core/auth-routes.ts';
+import { usersRouter, rolesRouter, permissionsRouter } from './core/admin-routes.ts';
 import { authenticate, enforceTenantContext, rateLimit, requireSuperAdmin } from './core/middleware.ts';
+import { runAsSystem } from './core/tenant-context.ts';
 import { enforcePermissions, isPublic } from './core/permission-map.ts';
 import { pendingMigrations } from './core/migrator.ts';
 
@@ -91,14 +93,16 @@ export function createApp() {
 
   // ---- Public ----------------------------------------------------------------
   app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
-  app.use('/api/auth', authRouter);
+  // Login/refresh/logout happen before a tenant exists, so they run as system work (they authenticate by credentials).
+  app.use('/api/auth', (_req, _res, next) => runAsSystem(() => next()), authRouter);
 
   // ---- Everything else under /api requires a verified session and permission ----
   const gate = express.Router();
   gate.use(authenticate);
   gate.use(enforceTenantContext);
   gate.use(enforcePermissions);
-  app.use('/api', (req, res, next) => (isPublic(req.method, req.path) ? next() : gate(req, res, next)));
+  // Public inbound endpoints (signed webhooks, OAuth return) authenticate themselves and route to a tenant internally.
+  app.use('/api', (req, res, next) => (isPublic(req.method, req.path) ? runAsSystem(() => next()) : gate(req, res, next)));
 
   // Admin diagnostics (replaces the old unauthenticated /api/db/*, /api/insforge/health endpoints)
   app.get('/api/admin/system-status', requireSuperAdmin, rateLimit({ windowMs: 60_000, max: 20 }), async (_req, res) => {
@@ -152,6 +156,10 @@ export function createApp() {
   app.use('/api/reports', reportsRouter);
   app.use('/api/ai', aiRouter);
   app.use('/api/crm', crmRouter);
+
+  app.use('/api/users', usersRouter);
+  app.use('/api/roles', rolesRouter);
+  app.use('/api/permissions', permissionsRouter);
 
   app.use('/api', (_req, res) => res.status(404).json({ error: 'Not found.' }));
 

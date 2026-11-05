@@ -1,3 +1,5 @@
+> **Update 2026-11-05.** Implemented: Vitest + supertest; unit tests (password policy, permission decisions, route-map coverage); integration tests on a real disposable PostgreSQL (auth, lockout, refresh rotation/replay, forged tokens, tenant forcing, RBAC, admin privilege rules, webhooks, XSS, AI tools, row-level security with a restricted role, and an endpoint smoke scan of every parameter-free GET). CI: `.github/workflows/ci.yml` (Postgres service). Still missing: service-level business-rule tests (inventory/pricing/finance/payroll), Playwright UI suite in the repo (a manual browser script was used), POST/PUT endpoint contract tests, coverage targets.
+
 # TESTING_STRATEGY
 
 ## Current state (verified)

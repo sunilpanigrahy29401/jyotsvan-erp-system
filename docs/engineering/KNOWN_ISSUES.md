@@ -1,28 +1,48 @@
 # KNOWN_ISSUES
 
-Severity: P0 blocker · P1 high · P2 medium · P3 low. "Verified" = reproduced via tooling or direct code read; "Static" = read from code, not executed.
+Status as of 2026-11-05 after the security/foundation work. Severity: P0 blocker · P1 high · P2 medium · P3 low.
 
-| ID | Sev | Issue | Evidence | Status |
-|---|---|---|---|---|
-| KI-01 | P0 | Arbitrary SQL endpoint `POST /api/db/query`, no auth | server.ts:274 | Static |
-| KI-02 | P0 | No authn/authz on any API route; tenant & actor taken from client | 29/30 routers have no auth refs; server.ts | Static |
-| KI-03 | P0 | `/api/db/init` runs all migrations/seeds unauthenticated; migrations also run on every boot | server.ts:389, 415-420 | Static |
-| KI-04 | P1 | Hard-coded fallback encryption key/salt for integration credentials | crypto-vault.ts:6,12 | Static |
-| KI-05 | P1 | DB TLS verification disabled | db.ts `rejectUnauthorized:false` | Static |
-| KI-06 | P1 | Unauthenticated recon: `/api/insforge/health`, `/api/db/status`, `/api/auth/profile?email=` | server.ts:98,188,220 | Static |
-| KI-07 | P1 | CRM type errors (4): `CrmPage.tsx:86,87,88` (`onNavigate` prop mismatch); `LeadCaptureIntegrations.tsx:176` (`provider_key` vs `provider`) | `npx tsc --noEmit` | **Verified** |
-| KI-08 | P1 | Zero automated tests, no CI | find *.test/spec = none | Verified |
-| KI-09 | P1 | Integration clients fall back to simulated sessions/data (Amazon even after a *live* auth failure), risking false "connected" states | amazon-client.ts:71,101; flipkart-client.ts:60; meta-client.ts:55 | Static |
-| KI-10 | P2 | No migration versioning; errors swallowed; `/api/db/init` always reports success:true | server.ts:337-397 | Static |
-| KI-11 | P2 | 25 template-literal SQL strings need injection triage | grep in src/server | Static |
-| KI-12 | P2 | Routers mounted twice (`/api/integrations/x` and `/api/x`) and several at bare `/api` → route collisions, double surface | server.ts:294-334 | Static |
-| KI-13 | P2 | Doc contradictions: permissions 127 vs 333; roadmap phases A–G vs A–E; `audit_logs` columns differ between DATABASE_SCHEMA.md and JYOTSVAN_DATABASE_SCHEMA_REPORT.md; "131 tables" vs ~227 declared names; legacy docs say "zero TypeScript errors" (false: 4) | docs/*, tsc | Verified/Static |
-| KI-14 | P2 | `src/database/schema.sql` stale (13 tables, UUID defaults) and conflicts with runtime schema (text IDs) | schema.sql vs db.ts | Static |
-| KI-15 | P2 | Single 4.2 MB JS bundle (801 KB gzip); no code splitting | vite build | Verified |
-| KI-16 | P2 | `/operations`, `/distribution` landing routes show "Phase N" placeholder; dead placeholder branches for quality/warehouse | OperationsPage.tsx:87-140, DistributionPage.tsx:31 | Static |
-| KI-17 | P2 | Port hard-coded to 3000; package name `react-example`; unused dep `pg-mem` | server.ts:68, package.json | Verified |
-| KI-18 | P2 | Health endpoints run `count(*)` on every table | server.ts:114-122,197-205 | Static |
-| KI-19 | P3 | `ssl`/pool settings, no graceful shutdown, no global error handler; raw DB errors returned to clients | various | Static |
-| KI-20 | P3 | Graphify parse errors in 9 `.tsx` files (5 named in distributors/); possibly parser limitation; `vite build` passes | graphify | Verified (tool), cause unconfirmed |
-| KI-21 | P3 | `.env.example` lacks `ENCRYPTION_SECRET`, Google Ads, Shopify, Amazon, Flipkart, Myntra, port settings | .env.example | Verified |
-| KI-22 | — | **Unverified**: DB connectivity, live table count, migration state, `npm run build` server bundle, real-time behaviour of every module | no credentials | Open |
+## Resolved (with proof)
+| Was | Fix | Evidence |
+|---|---|---|
+| KI-01 arbitrary SQL endpoint | removed | `tests/integration/auth-and-isolation.test.ts` |
+| KI-02 no server auth; tenant/actor from client | session auth on every `/api` route; tenant/actor forced from session; deny-by-default RBAC | auth, isolation, RBAC tests; route coverage test |
+| Login accepted any email/password; browser decided super-admin | server login (scrypt, JWT, rotating httpOnly refresh, lockout, audit); client fallback and quick-login/persona UI removed | tests + browser run |
+| KI-03 unauthenticated migrations; boot migrations | route removed; migrations only via `npm run db:migrate`; never on boot in production | production start check |
+| KI-04 hard-coded vault key | `ENCRYPTION_SECRET` required in production; legacy-key read fallback is opt-in | production start check |
+| KI-05 TLS verification off | verified by default; explicit dev-only opt-out, refused in production | code |
+| KI-06 unauthenticated recon endpoints | removed; admin-only `/api/admin/system-status` | tests |
+| KI-07 CRM type errors | fixed (`tsc` clean) | CI |
+| KI-08 no tests/CI | 38+ tests on real Postgres; GitHub Actions workflow | `npx vitest run`, `.github/workflows/ci.yml` |
+| KI-10 migrations unversioned | versioned runner with checksums and advisory lock; legacy set now builds a clean DB | CLI, tests |
+| KI-14 missing base tables / schema not reproducible | `categories`/`products` base DDL, savepoint-isolated demo seeds, 0003 adds compat columns and missing tables | clean-DB build |
+| Schema drift: ~25 endpoints returned 500 on a migration-built DB | queries/columns fixed | `endpoint-smoke.test.ts` |
+| Webhooks accepted unsigned payloads (Shopify header skip, others accepted anything) | fail closed | `webhooks-and-public.test.ts` |
+| Meta OAuth callback reflected XSS | escaped, CSP, same-origin postMessage | test |
+| AI: every caller was super admin; tools returned invented figures and product names | uses session permissions; tools query real data | `ai-tools.test.ts` |
+| Vite exposed `INSFORGE_*` to the browser | only `VITE_*` | `vite.config.ts` |
+| Notification live stream (SSE) unauthenticated/hard-coded user | fetch-based stream with session identity | browser run |
+
+## Open
+| ID | Sev | Issue |
+|---|---|---|
+| KI-20 | P1 | **Org/branch/department/unit/warehouse/business settings still live in browser storage** (`src/services/database.ts`) — edits do not reach the server. Users/roles/permissions are server-backed. |
+| KI-21 | P1 | **Live database never verified.** Everything above was proven on a database built from migrations. The production InsForge schema may differ (see 0003 compat columns; `IF NOT EXISTS` makes them no-ops where columns exist). Run `npm run db:migrate --status` against a **copy** first. |
+| KI-09 | P1 | Marketplace/ads clients still fall back to simulated sessions/data when credentials are absent (Amazon even after a failed live login). Must become explicit sandbox mode or be removed. |
+| KI-22 | P1 | RLS is implemented but disabled; needs a restricted DB role and staged rollout (runbook §6). |
+| KI-23 | P2 | ~580 handlers still read tenant/actor from headers/query with hard-coded fallbacks; safe only because middleware overwrites them. Migrate routers to `req.auth` and delete the fallbacks (`grep -rn "org-jyotsvan-corp" src/server`). |
+| KI-24 | P2 | Legacy migrations insert demo data (and ran with skipped seeds in tolerant mode); production seeding must be separated from schema. |
+| KI-25 | P2 | `roles.slug` is globally unique (blocks per-tenant role names); `users.email` is globally unique. |
+| KI-11 | P2 | ~25 template-literal SQL strings (dynamic WHERE builders) not individually reviewed. |
+| KI-26 | P2 | Rate limiting in memory (single instance). No Redis/job queue. |
+| KI-15 | P2 | Single 4.2 MB frontend bundle; no code splitting. |
+| KI-12 | P2 | Routers mounted at two URL prefixes (`/api/x` and `/api/integrations/x`). |
+| KI-27 | P2 | Integration "not configured" states return HTTP 500 instead of 4xx (Flipkart overview). |
+| KI-28 | P2 | Sensitive HR/partner personal data (PAN, UAN, bank account) stored in plain columns. |
+| KI-29 | P2 | Meta OAuth flow is half-built: callback does not exchange the code, `state` is not signed/verified. |
+| KI-30 | P3 | Backups/PITR/monitoring not provisioned. |
+| KI-31 | P3 | Reports/`ModulePlaceholder` landing pages (`/operations`, `/distribution`) still placeholders. |
+| — | — | **Not done at all (PRD):** accounting core (by instruction), e-invoice/e-way bill, WhatsApp, inbox, partner portals, rewards, franchise POS, MRP, HRMS statutory files, payroll PT/TDS correctness. See `PRD_GAP_ANALYSIS.md`. |
+
+## Correction to earlier audit notes
+- `docs/audit/04_SECURITY_AND_RISKS.md` H5 said no webhook HMAC verification existed. That was wrong: the Shopify and generic adapters verify HMAC, but skipped it when the header/secret was absent, and the raw body was never captured. Both are fixed.

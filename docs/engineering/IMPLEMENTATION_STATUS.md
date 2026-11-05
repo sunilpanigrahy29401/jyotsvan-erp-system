@@ -1,3 +1,5 @@
+> **Update 2026-11-05.** Verified on a database built from migrations, with 38+ automated tests: server authentication, session handling, RBAC enforcement, tenant forcing, users/roles administration (server-backed), webhook verification, AI tools on real data, and **no HTTP 500 on any parameter-free GET endpoint**. Class changes: Auth, RBAC, Users/Roles = verified (A\* -> working in tests); Settings for org/branch/dept/unit/warehouse/business = still browser-local (B); Integrations = unchanged (simulated unless real credentials); AI = real queries (C); CRM = compiles, wiring fixed. Everything not listed here keeps the classification below. Completion percentages below are unchanged except foundation items. See `KNOWN_ISSUES.md` for what is open and `PRD_GAP_ANALYSIS.md` for what is missing.
+
 # IMPLEMENTATION_STATUS
 
 **Method**: static inspection + `tsc`, `vite build`, Graphify. Nothing was exercised at runtime (no DB, no `.env`, server not booted) and there are zero tests. Therefore **no module qualifies as "Working and verified"**. Legacy docs mark ~all modules COMPLETE; that is *not* supported by evidence here.

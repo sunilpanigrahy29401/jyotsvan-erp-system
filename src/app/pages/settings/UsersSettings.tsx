@@ -61,6 +61,7 @@ export function UsersSettings() {
   });
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [issuedPassword, setIssuedPassword] = useState<{ email: string; password: string } | null>(null);
 
   const loadData = async () => {
     if (!currentUser) return;
@@ -144,7 +145,7 @@ export function UsersSettings() {
     setIsSubmitting(true);
 
     try {
-      await databaseService.createUser(currentUser, {
+      const created = await databaseService.createUser(currentUser, {
         email: formData.email,
         full_name: formData.fullName,
         phone_number: formData.phoneNumber || undefined,
@@ -154,6 +155,7 @@ export function UsersSettings() {
       });
 
       showToast(`User ${formData.fullName} created successfully`, 'success');
+      if (created.temporaryPassword) setIssuedPassword({ email: formData.email, password: created.temporaryPassword });
       setIsAddModalOpen(false);
       loadData();
     } catch (err: unknown) {
@@ -237,6 +239,23 @@ export function UsersSettings() {
 
   return (
     <div className="space-y-6">
+      {issuedPassword && (
+        <div role="alert" className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+          <div className="font-semibold">Temporary password for {issuedPassword.email}</div>
+          <p className="mt-1 text-xs">
+            Share it with the user securely. It is shown only once and must be changed at first sign-in.
+          </p>
+          <div className="mt-2 flex items-center gap-2">
+            <code className="rounded bg-white px-2 py-1 font-mono text-sm border border-amber-200 select-all">{issuedPassword.password}</code>
+            <Button size="sm" variant="outline" className="text-xs" onClick={() => navigator.clipboard?.writeText(issuedPassword.password)}>
+              Copy
+            </Button>
+            <Button size="sm" variant="outline" className="text-xs" onClick={() => setIssuedPassword(null)}>
+              I have saved it
+            </Button>
+          </div>
+        </div>
+      )}
       {/* Header with Title & Add User Action */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>

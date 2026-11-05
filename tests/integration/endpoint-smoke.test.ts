@@ -21,19 +21,25 @@ describe.skipIf(!HAS_DB)('endpoint smoke on a migration-built database', () => {
     ({ pool } = await import('../../src/server/db.ts'));
     const { createApp } = await import('../../src/server/app.ts');
     const { hashPassword } = await import('../../src/server/core/passwords.ts');
+    const { runAsSystem } = await import('../../src/server/core/tenant-context.ts');
     app = createApp();
-    const org = (await pool.query('SELECT id FROM organizations ORDER BY created_at ASC LIMIT 1')).rows[0].id;
-    await pool.query(`DELETE FROM users WHERE id = 'usr-smoke'`);
-    await pool.query(
-      `INSERT INTO users (id, organization_id, email, full_name, is_super_admin, status, password_hash)
-       VALUES ('usr-smoke', $1, 'smoke@example.test', 'Smoke', TRUE, 'active', $2)`,
-      [org, await hashPassword(PW)]
-    );
+    const hash = await hashPassword(PW);
+    // Fixture setup is system work (works whether or not RLS is enabled for the connected role).
+    await runAsSystem(async () => {
+      const org = (await pool.query('SELECT id FROM organizations ORDER BY created_at ASC LIMIT 1')).rows[0].id;
+      await pool.query(`DELETE FROM users WHERE id = 'usr-smoke'`);
+      await pool.query(
+        `INSERT INTO users (id, organization_id, email, full_name, is_super_admin, status, password_hash)
+         VALUES ('usr-smoke', $1, 'smoke@example.test', 'Smoke', TRUE, 'active', $2)`,
+        [org, hash]
+      );
+    });
     token = (await request(app).post('/api/auth/login').send({ email: 'smoke@example.test', password: PW })).body.accessToken;
   });
 
   afterAll(async () => {
-    await pool.query(`DELETE FROM users WHERE id = 'usr-smoke'`);
+    const { runAsSystem } = await import('../../src/server/core/tenant-context.ts');
+    await runAsSystem(async () => pool.query(`DELETE FROM users WHERE id = 'usr-smoke'`));
     await pool.end();
   });
 

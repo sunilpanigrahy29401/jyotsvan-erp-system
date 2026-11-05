@@ -1134,78 +1134,50 @@ class DatabaseService {
   // PERMISSIONS
   // ============================================================================
 
-  public async getPermissions(actor?: AuthUser | null): Promise<Permission[]> {
-    if (actor) {
-      accessControlService.enforceAuthorization(actor, 'roles.view', actor.organization_id);
-    }
-    return [...this.permissions];
-  }
+  // ---------------------------------------------------------------------------------------------
+  // Users, roles and permissions are SERVER-owned (/api/users, /api/roles, /api/permissions).
+  // The server enforces permissions, privilege-escalation rules, audit and session revocation; this class only calls it.
+  // (The method signatures are unchanged so the existing Settings screens keep working.)
+  // ---------------------------------------------------------------------------------------------
+  private rolePermissionCodeCache = new Map<string, string[]>();
 
-  public getRolePermissionCodes(roleId: string): string[] {
-    const permIds = this.rolePermissions.filter((rp) => rp.role_id === roleId).map((rp) => rp.permission_id);
-    return this.permissions.filter((p) => permIds.includes(p.id)).map((p) => p.code);
-  }
-
-  public getUserPermissionCodes(userId: string): string[] {
-    const assignedRoleIds = this.userRoles.filter((ur) => ur.user_id === userId).map((ur) => ur.role_id);
-    const permIds = this.rolePermissions
-      .filter((rp) => assignedRoleIds.includes(rp.role_id))
-      .map((rp) => rp.permission_id);
-    return Array.from(new Set(this.permissions.filter((p) => permIds.includes(p.id)).map((p) => p.code)));
-  }
-
-  public getUserRoles(userId: string): Role[] {
-    const assignedRoleIds = this.userRoles.filter((ur) => ur.user_id === userId).map((ur) => ur.role_id);
-    return this.roles.filter((r) => assignedRoleIds.includes(r.id));
-  }
-
-  // ============================================================================
-  // USERS MANAGEMENT
-  // ============================================================================
-
-  public async getUsers(actor: AuthUser): Promise<Array<User & { roles: Role[]; permissionsCount: number }>> {
-    accessControlService.enforceAuthorization(actor, 'users.view', actor.organization_id);
-
-    const orgUsers = actor.is_super_admin
-      ? this.users
-      : this.users.filter((u) => u.organization_id === actor.organization_id);
-
-    return orgUsers.map((user) => {
-      const roles = this.getUserRoles(user.id);
-      const permissions = this.getUserPermissionCodes(user.id);
-      return {
-        ...user,
-        roles,
-        permissionsCount: user.is_super_admin ? this.permissions.length : permissions.length,
-      };
+  private async api<T>(path: string, init?: RequestInit): Promise<T> {
+    const res = await fetch(path, {
+      ...init,
+      headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) },
     });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error((body as { error?: string }).error || `Request failed (${res.status})`);
+    return body as T;
+  }
+
+  public async getPermissions(_actor?: AuthUser | null): Promise<Permission[]> {
+    return (await this.api<{ permissions: Permission[] }>('/api/permissions')).permissions;
+  }
+
+  /** Synchronous accessor used by the role editor; filled by getRoles()/getRoleWithDetails(). */
+  public getRolePermissionCodes(roleId: string): string[] {
+    return this.rolePermissionCodeCache.get(roleId) || [];
+  }
+
+  public async getUsers(_actor: AuthUser): Promise<Array<User & { roles: Role[]; permissionsCount: number }>> {
+    return (await this.api<{ users: Array<User & { roles: Role[]; permissionsCount: number }> }>('/api/users')).users;
   }
 
   public async getUserById(
-    actor: AuthUser,
+    _actor: AuthUser,
     userId: string
   ): Promise<(User & { roles: Role[]; permissions: string[] }) | null> {
-    accessControlService.enforceAuthorization(actor, 'users.view', actor.organization_id);
-
-    const user = this.users.find((u) => u.id === userId);
-    if (!user) return null;
-
-    if (!actor.is_super_admin && user.organization_id !== actor.organization_id) {
+    try {
+      return (await this.api<{ user: User & { roles: Role[]; permissions: string[] } }>(`/api/users/${encodeURIComponent(userId)}`)).user;
+    } catch {
       return null;
     }
-
-    const roles = this.getUserRoles(user.id);
-    const permissions = this.getUserPermissionCodes(user.id);
-
-    return {
-      ...user,
-      roles,
-      permissions: user.is_super_admin ? ['*:*'] : permissions,
-    };
   }
 
+  /** Returns the created user; when the server generated a password it is returned ONCE as `temporaryPassword`. */
   public async createUser(
-    actor: AuthUser,
+    _actor: AuthUser,
     payload: {
       email: string;
       full_name: string;
@@ -1214,84 +1186,13 @@ class DatabaseService {
       phone_number?: string | null;
       is_super_admin?: boolean;
     }
-  ): Promise<User> {
-    accessControlService.enforceAuthorization(actor, 'users.create', actor.organization_id);
-
-    const email = payload.email.trim().toLowerCase();
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      throw new Error('Invalid email address format.');
-    }
-
-    if (!payload.full_name || payload.full_name.trim().length < 2) {
-      throw new Error('Full name must be at least 2 characters.');
-    }
-
-    // Duplicate check
-    const existing = this.users.find((u) => u.email.toLowerCase() === email);
-    if (existing) {
-      throw new Error(`A user account with email '${email}' already exists.`);
-    }
-
-    // Role existence validation
-    const targetRole = this.roles.find((r) => r.id === payload.role_id);
-    if (!targetRole) {
-      throw new Error('Designated role does not exist.');
-    }
-
-    // Only existing super-admins can create another super-admin
-    const isSuperAdmin = Boolean(payload.is_super_admin && actor.is_super_admin);
-
-    const newUser: User = {
-      id: `usr-${Math.random().toString(36).substring(2, 9)}`,
-      organization_id: actor.organization_id,
-      email,
-      full_name: payload.full_name.trim(),
-      phone_number: payload.phone_number || null,
-      avatar_url: null,
-      is_super_admin: isSuperAdmin,
-      default_branch_id: payload.default_branch_id || this.branches[0]?.id || null,
-      status: 'active',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      created_by: actor.id,
-      updated_by: actor.id,
-    };
-
-    this.users.unshift(newUser);
-    this.saveToStorage(STORAGE_KEY_DB_USERS, this.users);
-
-    // Assign Role
-    const userRoleAssignment: UserRole = {
-      id: `ur-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
-      user_id: newUser.id,
-      role_id: targetRole.id,
-      organization_id: actor.organization_id,
-      assigned_by: actor.id,
-      created_at: new Date().toISOString(),
-    };
-    this.userRoles.push(userRoleAssignment);
-    this.saveToStorage(STORAGE_KEY_DB_USER_ROLES, this.userRoles);
-
-    await this.recordAuditLog({
-      organization_id: actor.organization_id,
-      actor_id: actor.id,
-      actor_email: actor.email,
-      action: 'user.create',
-      target_resource: 'users',
-      target_id: newUser.id,
-      details: {
-        email: newUser.email,
-        assigned_role: targetRole.name,
-        is_super_admin: isSuperAdmin,
-      },
-    });
-
-    return newUser;
+  ): Promise<User & { temporaryPassword?: string }> {
+    const r = await this.api<{ user: User; temporaryPassword?: string }>('/api/users', { method: 'POST', body: JSON.stringify(payload) });
+    return { ...r.user, temporaryPassword: r.temporaryPassword };
   }
 
   public async updateUser(
-    actor: AuthUser,
+    _actor: AuthUser,
     userId: string,
     payload: {
       full_name?: string;
@@ -1302,366 +1203,64 @@ class DatabaseService {
       is_super_admin?: boolean;
     }
   ): Promise<User> {
-    accessControlService.enforceAuthorization(actor, 'users.edit', actor.organization_id);
-
-    const targetUserIndex = this.users.findIndex((u) => u.id === userId);
-    if (targetUserIndex === -1) {
-      throw new Error('User not found.');
-    }
-
-    const targetUser = this.users[targetUserIndex];
-
-    // Tenant boundary check
-    if (!actor.is_super_admin && targetUser.organization_id !== actor.organization_id) {
-      throw new AuthorizationError('Access denied: Cannot modify users of another organization.');
-    }
-
-    // Super admin safeguards:
-    // Prevent modifying or demoting the active Super Admin if it's the last one
-    if (targetUser.is_super_admin && payload.is_super_admin === false) {
-      const activeSuperAdmins = this.users.filter((u) => u.is_super_admin && u.status === 'active');
-      if (activeSuperAdmins.length <= 1) {
-        throw new Error('Safeguard violation: Cannot revoke the last active Super Administrator.');
-      }
-    }
-
-    // Cannot deactivate self
-    if (userId === actor.id && payload.status && payload.status !== 'active') {
-      throw new Error('Safeguard violation: You cannot deactivate your own active session account.');
-    }
-
-    const updatedUser: User = {
-      ...targetUser,
-      ...(payload.full_name ? { full_name: payload.full_name.trim() } : {}),
-      ...(payload.phone_number !== undefined ? { phone_number: payload.phone_number } : {}),
-      ...(payload.default_branch_id !== undefined ? { default_branch_id: payload.default_branch_id } : {}),
-      ...(payload.status ? { status: payload.status } : {}),
-      ...(actor.is_super_admin && payload.is_super_admin !== undefined
-        ? { is_super_admin: payload.is_super_admin }
-        : {}),
-      updated_at: new Date().toISOString(),
-      updated_by: actor.id,
-    };
-
-    this.users[targetUserIndex] = updatedUser;
-    this.saveToStorage(STORAGE_KEY_DB_USERS, this.users);
-
-    // Update Role assignment if provided
-    if (payload.role_id) {
-      const targetRole = this.roles.find((r) => r.id === payload.role_id);
-      if (!targetRole) {
-        throw new Error('Specified role does not exist.');
-      }
-
-      // Remove existing role assignments and assign new role
-      this.userRoles = this.userRoles.filter((ur) => ur.user_id !== userId);
-      this.userRoles.push({
-        id: `ur-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
-        user_id: userId,
-        role_id: targetRole.id,
-        organization_id: targetUser.organization_id,
-        assigned_by: actor.id,
-        created_at: new Date().toISOString(),
-      });
-      this.saveToStorage(STORAGE_KEY_DB_USER_ROLES, this.userRoles);
-
-      await this.recordAuditLog({
-        organization_id: actor.organization_id,
-        actor_id: actor.id,
-        actor_email: actor.email,
-        action: 'user.role_assign',
-        target_resource: 'users',
-        target_id: userId,
-        details: { new_role_id: targetRole.id, new_role_name: targetRole.name },
-      });
-    }
-
-    await this.recordAuditLog({
-      organization_id: actor.organization_id,
-      actor_id: actor.id,
-      actor_email: actor.email,
-      action: 'user.update',
-      target_resource: 'users',
-      target_id: userId,
-      details: payload,
-    });
-
-    return updatedUser;
+    await this.api(`/api/users/${encodeURIComponent(userId)}`, { method: 'PATCH', body: JSON.stringify(payload) });
+    const u = await this.getUserById(_actor, userId);
+    return u as User;
   }
 
   public async toggleUserStatus(actor: AuthUser, userId: string): Promise<User> {
-    const user = this.users.find((u) => u.id === userId);
-    if (!user) throw new Error('User not found.');
-
-    const newStatus: EntityStatus = user.status === 'active' ? 'inactive' : 'active';
-    return this.updateUser(actor, userId, { status: newStatus });
+    await this.api(`/api/users/${encodeURIComponent(userId)}/toggle-status`, { method: 'POST' });
+    return (await this.getUserById(actor, userId)) as User;
   }
 
-  public async deleteUser(actor: AuthUser, userId: string): Promise<boolean> {
-    accessControlService.enforceAuthorization(actor, 'users.delete', actor.organization_id);
+  public async resetUserPassword(userId: string): Promise<string> {
+    return (await this.api<{ temporaryPassword: string }>(`/api/users/${encodeURIComponent(userId)}/reset-password`, { method: 'POST' })).temporaryPassword;
+  }
 
-    const targetUser = this.users.find((u) => u.id === userId);
-    if (!targetUser) throw new Error('User not found.');
-
-    if (userId === actor.id) {
-      throw new Error('Safeguard violation: You cannot delete your own account.');
-    }
-
-    if (targetUser.is_super_admin) {
-      const activeSuperAdmins = this.users.filter((u) => u.is_super_admin && u.status === 'active');
-      if (activeSuperAdmins.length <= 1) {
-        throw new Error('Safeguard violation: Cannot delete the last active Super Administrator.');
-      }
-    }
-
-    this.users = this.users.filter((u) => u.id !== userId);
-    this.userRoles = this.userRoles.filter((ur) => ur.user_id !== userId);
-
-    this.saveToStorage(STORAGE_KEY_DB_USERS, this.users);
-    this.saveToStorage(STORAGE_KEY_DB_USER_ROLES, this.userRoles);
-
-    await this.recordAuditLog({
-      organization_id: actor.organization_id,
-      actor_id: actor.id,
-      actor_email: actor.email,
-      action: 'user.delete',
-      target_resource: 'users',
-      target_id: userId,
-      details: { deleted_email: targetUser.email, deleted_name: targetUser.full_name },
-    });
-
+  public async deleteUser(_actor: AuthUser, userId: string): Promise<boolean> {
+    await this.api(`/api/users/${encodeURIComponent(userId)}`, { method: 'DELETE' });
     return true;
   }
 
-  // ============================================================================
-  // ROLES & PERMISSIONS MANAGEMENT
-  // ============================================================================
-
-  public async getRoles(actor?: AuthUser | null): Promise<Array<Role & { usersCount: number; permissionsCount: number }>> {
-    if (actor) {
-      accessControlService.enforceAuthorization(actor, 'roles.view', actor.organization_id);
-    }
-
-    return this.roles.map((role) => {
-      const usersCount = this.userRoles.filter((ur) => ur.role_id === role.id).length;
-      const permIds = this.rolePermissions.filter((rp) => rp.role_id === role.id).map((rp) => rp.permission_id);
-      return {
-        ...role,
-        usersCount,
-        permissionsCount: role.slug === 'super_admin' ? this.permissions.length : permIds.length,
-      };
-    });
+  public async getRoles(_actor?: AuthUser | null): Promise<Array<Role & { usersCount: number; permissionsCount: number }>> {
+    const { roles } = await this.api<{ roles: Array<Role & { usersCount: number; permissionsCount: number; permission_codes: string[] }> }>('/api/roles');
+    for (const r of roles) this.rolePermissionCodeCache.set(r.id, r.permission_codes || []);
+    return roles;
   }
 
   public async getRoleWithDetails(
-    actor: AuthUser,
+    _actor: AuthUser,
     roleId: string
-  ): Promise<{
-    role: Role;
-    permissions: Permission[];
-    assignedUsers: User[];
-  } | null> {
-    accessControlService.enforceAuthorization(actor, 'roles.view', actor.organization_id);
-
-    const role = this.roles.find((r) => r.id === roleId);
-    if (!role) return null;
-
-    const assignedUserIds = this.userRoles.filter((ur) => ur.role_id === roleId).map((ur) => ur.user_id);
-    const assignedUsers = this.users.filter((u) => assignedUserIds.includes(u.id));
-
-    let permissions: Permission[] = [];
-    if (role.slug === 'super_admin') {
-      permissions = [...this.permissions];
-    } else {
-      const permIds = this.rolePermissions.filter((rp) => rp.role_id === roleId).map((rp) => rp.permission_id);
-      permissions = this.permissions.filter((p) => permIds.includes(p.id));
+  ): Promise<{ role: Role; permissions: Permission[]; assignedUsers: User[] } | null> {
+    try {
+      const d = await this.api<{ role: Role; permissions: Permission[]; assignedUsers: User[] }>(`/api/roles/${encodeURIComponent(roleId)}`);
+      this.rolePermissionCodeCache.set(roleId, d.permissions.map((p) => p.code));
+      return d;
+    } catch {
+      return null;
     }
-
-    return {
-      role: { ...role },
-      permissions,
-      assignedUsers,
-    };
   }
 
   public async createRole(
-    actor: AuthUser,
-    payload: {
-      name: string;
-      slug: string;
-      description?: string;
-      permission_codes: string[];
-    }
+    _actor: AuthUser,
+    payload: { name: string; slug: string; description?: string; permission_codes: string[] }
   ): Promise<Role> {
-    accessControlService.enforceAuthorization(actor, 'roles.create', actor.organization_id);
-
-    if (!payload.name || payload.name.trim().length < 2) {
-      throw new Error('Role name must be at least 2 characters.');
-    }
-
-    const slug = payload.slug.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
-    if (!slug) {
-      throw new Error('Role slug must contain valid alphanumeric characters.');
-    }
-
-    const existing = this.roles.find((r) => r.slug === slug);
-    if (existing) {
-      throw new Error(`A role with slug '${slug}' already exists.`);
-    }
-
-    const newRole: Role = {
-      id: `role-${slug}-${Math.random().toString(36).substring(2, 6)}`,
-      organization_id: actor.organization_id,
-      name: payload.name.trim(),
-      slug,
-      description: payload.description || null,
-      is_system: false,
-      status: 'active',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      created_by: actor.id,
-      updated_by: actor.id,
-    };
-
-    this.roles.push(newRole);
-    this.saveToStorage(STORAGE_KEY_DB_ROLES, this.roles);
-
-    // Map Permissions
-    const matchedPerms = this.permissions.filter((p) => payload.permission_codes.includes(p.code));
-    for (const perm of matchedPerms) {
-      this.rolePermissions.push({
-        id: `rp-${newRole.slug}-${perm.id}`,
-        role_id: newRole.id,
-        permission_id: perm.id,
-        created_at: new Date().toISOString(),
-      });
-    }
-    this.saveToStorage(STORAGE_KEY_DB_ROLE_PERMS, this.rolePermissions);
-
-    await this.recordAuditLog({
-      organization_id: actor.organization_id,
-      actor_id: actor.id,
-      actor_email: actor.email,
-      action: 'role.create',
-      target_resource: 'roles',
-      target_id: newRole.id,
-      details: { role_name: newRole.name, permissions_count: matchedPerms.length },
-    });
-
-    return newRole;
+    return (await this.api<{ role: Role }>('/api/roles', { method: 'POST', body: JSON.stringify(payload) })).role;
   }
 
   public async updateRole(
     actor: AuthUser,
     roleId: string,
-    payload: {
-      name?: string;
-      description?: string;
-      permission_codes?: string[];
-      status?: EntityStatus;
-    }
+    payload: { name?: string; description?: string; permission_codes?: string[]; status?: EntityStatus }
   ): Promise<Role> {
-    accessControlService.enforceAuthorization(actor, 'roles.edit', actor.organization_id);
-
-    const roleIndex = this.roles.findIndex((r) => r.id === roleId);
-    if (roleIndex === -1) throw new Error('Role not found.');
-
-    const targetRole = this.roles[roleIndex];
-
-    // Safeguard Super Admin from permission stripping
-    if (targetRole.slug === 'super_admin' && payload.permission_codes && !payload.permission_codes.includes('*:*')) {
-      throw new Error('Safeguard violation: Cannot strip system privileges from the Super Administrator role.');
-    }
-
-    const updatedRole: Role = {
-      ...targetRole,
-      ...(payload.name ? { name: payload.name.trim() } : {}),
-      ...(payload.description !== undefined ? { description: payload.description } : {}),
-      ...(payload.status ? { status: payload.status } : {}),
-      updated_at: new Date().toISOString(),
-      updated_by: actor.id,
-    };
-
-    this.roles[roleIndex] = updatedRole;
-    this.saveToStorage(STORAGE_KEY_DB_ROLES, this.roles);
-
-    // Update Permissions if provided
-    if (payload.permission_codes) {
-      this.rolePermissions = this.rolePermissions.filter((rp) => rp.role_id !== roleId);
-      const matchedPerms = this.permissions.filter((p) => payload.permission_codes?.includes(p.code));
-      for (const perm of matchedPerms) {
-        this.rolePermissions.push({
-          id: `rp-${targetRole.slug}-${perm.id}`,
-          role_id: targetRole.id,
-          permission_id: perm.id,
-          created_at: new Date().toISOString(),
-        });
-      }
-      this.saveToStorage(STORAGE_KEY_DB_ROLE_PERMS, this.rolePermissions);
-
-      await this.recordAuditLog({
-        organization_id: actor.organization_id,
-        actor_id: actor.id,
-        actor_email: actor.email,
-        action: 'role.permissions_update',
-        target_resource: 'roles',
-        target_id: roleId,
-        details: { permission_count: matchedPerms.length },
-      });
-    }
-
-    await this.recordAuditLog({
-      organization_id: actor.organization_id,
-      actor_id: actor.id,
-      actor_email: actor.email,
-      action: 'role.update',
-      target_resource: 'roles',
-      target_id: roleId,
-      details: payload,
-    });
-
-    return updatedRole;
+    await this.api(`/api/roles/${encodeURIComponent(roleId)}`, { method: 'PATCH', body: JSON.stringify(payload) });
+    return (await this.getRoleWithDetails(actor, roleId))!.role;
   }
 
-  public async deleteRole(actor: AuthUser, roleId: string): Promise<boolean> {
-    accessControlService.enforceAuthorization(actor, 'roles.delete', actor.organization_id);
-
-    const targetRole = this.roles.find((r) => r.id === roleId);
-    if (!targetRole) throw new Error('Role not found.');
-
-    if (targetRole.is_system || targetRole.slug === 'super_admin') {
-      throw new Error('Safeguard violation: System roles cannot be deleted.');
-    }
-
-    const assignedUsers = this.userRoles.filter((ur) => ur.role_id === roleId);
-    if (assignedUsers.length > 0) {
-      throw new Error(
-        `Cannot delete role '${targetRole.name}' because it is actively assigned to ${assignedUsers.length} user(s). Reassign them first.`
-      );
-    }
-
-    this.roles = this.roles.filter((r) => r.id !== roleId);
-    this.rolePermissions = this.rolePermissions.filter((rp) => rp.role_id !== roleId);
-
-    this.saveToStorage(STORAGE_KEY_DB_ROLES, this.roles);
-    this.saveToStorage(STORAGE_KEY_DB_ROLE_PERMS, this.rolePermissions);
-
-    await this.recordAuditLog({
-      organization_id: actor.organization_id,
-      actor_id: actor.id,
-      actor_email: actor.email,
-      action: 'role.delete',
-      target_resource: 'roles',
-      target_id: roleId,
-      details: { deleted_role_name: targetRole.name, deleted_role_slug: targetRole.slug },
-    });
-
+  public async deleteRole(_actor: AuthUser, roleId: string): Promise<boolean> {
+    await this.api(`/api/roles/${encodeURIComponent(roleId)}`, { method: 'DELETE' });
     return true;
   }
-
-  // ============================================================================
-  // AUDIT LOGS
-  // ============================================================================
 
   public async getAuditLogs(actor: AuthUser): Promise<AuditLog[]> {
     accessControlService.enforceAuthorization(actor, 'audit_logs.view', actor.organization_id);

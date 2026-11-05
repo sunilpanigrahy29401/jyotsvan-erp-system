@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import { LoginPage } from './modules/auth/LoginPage';
+import { ForcePasswordChange } from './modules/auth/ForcePasswordChange';
 import { AppShell } from './components/layout/AppShell';
 import { CommandCenterPage } from './app/pages/CommandCenterPage';
 import { BusinessPage } from './app/pages/BusinessPage';
@@ -62,6 +63,11 @@ function MainRouter() {
 
   if (!isAuthenticated) {
     return <LoginPage />;
+  }
+
+  // Accounts that still use an administrator-issued temporary password must choose their own first.
+  if ((user as unknown as { must_change_password?: boolean } | null)?.must_change_password) {
+    return <ForcePasswordChange />;
   }
 
   // Determine active component and metadata

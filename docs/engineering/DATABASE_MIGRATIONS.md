@@ -1,3 +1,5 @@
+> **Update 2026-11-05.** Superseded in part: a versioned runner now exists (`src/server/core/migrator.ts`, `npm run db:migrate`) with `schema_migrations`, checksums and an advisory lock; migrations never run on boot in production. The 30 legacy migrations are kept (run by `--legacy`) and now build a **clean database**: a base-table step creates `categories`/`products`, demo seed statements run under savepoints (a colliding seed row is skipped, not fatal), and genuine bugs in the Meta, Myntra, warehouse and field-sales migrations were fixed. `0003_schema_compat.sql` adds read-only compatibility columns and tables the services needed. The live InsForge database was NOT inspected (see KNOWN_ISSUES KI-21). Procedures: `OPERATIONS_RUNBOOK.md`.
+
 # DATABASE_MIGRATIONS
 
 ## Mechanism (verified)

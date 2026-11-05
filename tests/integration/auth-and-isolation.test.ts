@@ -57,7 +57,7 @@ describe.skipIf(!HAS_DB)('server auth, tenant isolation and RBAC (real Postgres)
 
   afterAll(async () => {
     await pool.query(`DELETE FROM categories WHERE id IN ('cat-it-mine','cat-it-theirs')`);
-    await pool.query(`DELETE FROM users WHERE email LIKE '%@example.test'`);
+    await pool.query(`DELETE FROM users WHERE email LIKE 'it-%@example.test'`);
     await pool.query(`DELETE FROM organizations WHERE id = $1`, [OTHER_ORG]);
     await pool.end();
   });

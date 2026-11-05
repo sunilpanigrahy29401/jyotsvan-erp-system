@@ -2,6 +2,7 @@
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
 import { verifyAccessToken } from './tokens.ts';
 import { loadPrincipal, type Principal } from './auth-store.ts';
+import { runAsSystem, runWithTenant } from './tenant-context.ts';
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -45,7 +46,8 @@ export const authenticate: RequestHandler = async (req, res, next) => {
     if (!token) return res.status(401).json({ error: 'Authentication required.', code: 'UNAUTHENTICATED' });
     const claims = await verifyAccessToken(token);
     if (!claims) return res.status(401).json({ error: 'Invalid or expired session.', code: 'TOKEN_INVALID' });
-    const principal = await getPrincipal(claims.sub, claims.sid);
+    // The principal lookup happens before the tenant is known, so it runs as system work.
+    const principal = await runAsSystem(() => getPrincipal(claims.sub, claims.sid));
     if (!principal || principal.organizationId !== claims.org) {
       return res.status(401).json({ error: 'Session is no longer valid.', code: 'SESSION_REVOKED' });
     }
@@ -82,7 +84,8 @@ export const enforceTenantContext: RequestHandler = (req, _res, next) => {
   if (b && typeof b === 'object' && !Array.isArray(b)) {
     for (const k of ['organizationId', 'organization_id', 'orgId', 'org_id']) if (k in b) b[k] = a.organizationId;
   }
-  next();
+  // Everything downstream (handlers, services, queries) now runs inside this tenant's database context.
+  runWithTenant(a.organizationId, () => next());
 };
 
 export const requireSuperAdmin: RequestHandler = (req, res, next) => {
