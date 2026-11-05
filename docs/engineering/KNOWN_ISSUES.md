@@ -42,6 +42,12 @@ Status as of 2026-11-05 after the security/foundation work. Severity: P0 blocker
 | KI-29 | P2 | Meta OAuth flow is half-built: callback does not exchange the code, `state` is not signed/verified. |
 | KI-30 | P3 | Backups/PITR/monitoring not provisioned. |
 | KI-31 | P3 | Reports/`ModulePlaceholder` landing pages (`/operations`, `/distribution`) still placeholders. |
+| KI-40 | P1 | **CRM migrations 0006/0007 are not applied to the live database.** Until a human runs `npm run db:migrate`, `/api/crm` fails there. |
+| KI-41 | P2 | CRM e-mail/SMS/WhatsApp campaigns are queued only; no delivery provider. Sequences create owner tasks instead of sending. Documented in the UI. |
+| KI-42 | P2 | CRM Meta/Google lead callbacks are protected by the shared `x-ingest-key`, not by provider signatures; Meta's id-only webhook (needs a Graph API fetch) is not handled. |
+| KI-43 | P3 | CRM ticket escalation and sequence steps run when triggered (page load / button / `POST /api/crm/sequences/run-due`); there is no background scheduler yet. |
+| KI-44 | P3 | CRM accounts/contacts/deals can be archived but not merged; only leads have merge. Only leads have import/export. |
+| KI-45 | P3 | CRM `crm_pipeline_stages` deletion removes that stage's history rows (new_stage_id is RESTRICT); only possible when no deal currently sits in the stage. |
 | — | — | **Not done at all (PRD):** accounting core (by instruction), e-invoice/e-way bill, WhatsApp, inbox, partner portals, rewards, franchise POS, MRP, HRMS statutory files, payroll PT/TDS correctness. See `PRD_GAP_ANALYSIS.md`. |
 
 ## Correction to earlier audit notes

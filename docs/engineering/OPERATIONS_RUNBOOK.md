@@ -34,7 +34,9 @@ The old code encrypted credentials with a built-in key. To migrate: set `ENCRYPT
 
 ## 5. Inbound webhooks
 - Provider webhooks (`/api/webhooks/:provider/:id`) are **rejected unless signed** with the connection's secret. Shopify and the generic adapter verify HMAC; Amazon/Flipkart/Myntra reject all webhooks until a verification scheme is implemented (they use polling today).
-- CRM lead intake (`POST /api/crm/webhooks/inbound`) needs header `x-ingest-key: $CRM_INGEST_KEY`; the tenant is `CRM_INGEST_ORG_ID` (or the first organization).
+- CRM lead intake (`POST /api/crm/webhooks/inbound?source=webform|indiamart|meta_ads|google_ads`) needs header `x-ingest-key: $CRM_INGEST_KEY` (≥16 chars); the tenant is `CRM_INGEST_ORG_ID` (or the first organization). Without the key the CRM Integrations screen shows each channel as "awaiting credentials". Repeated deliveries (same external id) are ignored; rejected/failed payloads are logged in `crm_webhook_logs`.
+- CRM unsubscribe links are signed with `ENCRYPTION_SECRET` (rotating it invalidates links already sent). Campaign recipient CSVs include a per-recipient token: `https://<host>/api/crm/public/unsubscribe?t=<token>`.
+- CRM has no background scheduler: ticket escalation runs on ticket list/stats views and via `POST /api/crm/tickets/escalate`; drip steps via `POST /api/crm/sequences/run-due`. Call these from a cron if you need them unattended.
 
 ## 6. Row-level security (database-level tenant isolation) — OFF by default
 Implemented and tested (`tests/integration/rls.test.ts`), but only effective when the app connects as a **non-superuser role without BYPASSRLS**. Rollout:
@@ -52,6 +54,12 @@ Tables that have no `organization_id` column (child line-item tables) are not co
 
 ## 8. Backups and recovery — NOT VERIFIED
 Not provisioned by this repository. Required before go-live: automated daily backups with point-in-time recovery, and a documented, tested restore.
+
+## 8b. CRM release checklist
+1. Back up, then `npm run db:migrate` (applies `0006_crm_core`, `0007_crm_full`; check with `-- --status`).
+2. Set `CRM_INGEST_KEY` (and `CRM_INGEST_ORG_ID` on multi-tenant installs) before pointing IndiaMART/Meta/Google/web forms at the endpoint.
+3. Open `/crm/settings`: confirm the pipeline, SLAs, assignment rules and scoring rules for the tenant (defaults are created on first use).
+4. Make sure users who need it hold `crm.view/create/edit` (`crm.delete` for archive/purge, `crm.approve` for handoff approval).
 
 ## 9. Known operational limits
 - Rate limiting is per-process memory: with more than one instance, use a shared store (Redis) or an edge limiter.

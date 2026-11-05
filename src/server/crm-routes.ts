@@ -193,6 +193,9 @@ crmRouter.put('/accounts/:id', route(async (req) => { await custom(req, 'account
 crmRouter.patch('/accounts/:id', route(async (req) => { await custom(req, 'account', false); return CrmAccounts.update(ctx(req).orgId, req.params.id, req.body || {}); }));
 crmRouter.delete('/accounts/:id', route(async (req) => { const r = await CrmAccounts.archive(ctx(req).orgId, req.params.id); audit(req, 'crm.account.archive', 'crm_accounts', req.params.id); return r; }));
 crmRouter.post('/accounts/:id/restore', route((req) => CrmAccounts.restore(ctx(req).orgId, req.params.id)));
+crmRouter.get('/lookups/linkable', route((req) => CrmAccounts.searchLinkable(ctx(req).orgId, String(req.query.type || ''), String(req.query.search || ''))));
+crmRouter.post('/accounts/:id/links', route((req) => CrmAccounts.link(ctx(req).orgId, req.params.id, String(req.body?.entity_type || ''), String(req.body?.entity_id || '')), 201));
+crmRouter.delete('/account-links/:id', route((req) => CrmAccounts.unlink(ctx(req).orgId, req.params.id)));
 crmRouter.get('/accounts/:id/documents', route((req) => CrmAccounts.listDocuments(ctx(req).orgId, req.params.id)));
 crmRouter.get('/documents/meta', route(() => ({ doc_types: DOC_TYPES })));
 crmRouter.post('/accounts/:id/documents', route((req) => { const { orgId, actor } = ctx(req); return CrmAccounts.addDocument(orgId, req.params.id, req.body || {}, actor); }, 201));
@@ -363,7 +366,24 @@ crmRouter.post('/automation', route((req) => CrmConfig.automation.create(ctx(req
 crmRouter.patch('/automation/:id', route((req) => CrmConfig.automation.update(ctx(req).orgId, req.params.id, req.body || {})));
 crmRouter.delete('/automation/:id', route((req) => CrmConfig.automation.remove(ctx(req).orgId, req.params.id)));
 
+// ===== lookups for pickers (read-only; avoid requiring HR/product permissions for sales users) =========================================
+crmRouter.get('/lookups/employees', route(async (req) => (await pool.query(
+  `SELECT e.id, e.display_name, e.employee_code, e.email, d.name AS designation FROM employees e LEFT JOIN designations d ON d.id = e.designation_id
+    WHERE e.organization_id = $1 AND e.status = 'active' ORDER BY e.display_name LIMIT 500`, [ctx(req).orgId])).rows));
+crmRouter.get('/lookups/products', route(async (req) => {
+  const q = `%${String(req.query.search || '').toLowerCase()}%`;
+  return (await pool.query(
+    `SELECT id, sku, name, selling_price, tax_rate, unit FROM products WHERE organization_id = $1 AND status = 'active'
+        AND (LOWER(name) LIKE $2 OR LOWER(COALESCE(sku,'')) LIKE $2) ORDER BY name LIMIT 25`, [ctx(req).orgId, q])).rows;
+}));
+
 // ===== integrations ==========================================================================================================================
 crmRouter.get('/integrations', route((req) => CrmConfig.integrations.list(ctx(req).orgId)));
 crmRouter.get('/integrations/logs', route((req) => CrmConfig.integrations.webhookLogs(ctx(req).orgId)));
 crmRouter.patch('/integrations/:provider', route((req) => CrmConfig.integrations.setEnabled(ctx(req).orgId, req.params.provider, req.body?.enabled !== false)));
+/** Authenticated test/manual capture: runs a provider-shaped payload through the same pipeline as the public endpoint. */
+crmRouter.post('/integrations/capture', route(async (req) => {
+  const { orgId } = ctx(req);
+  const source = String(req.body?.source || 'webform').toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 48) || 'webform';
+  return ingestLead(orgId, source, req.body?.payload || {}, String(req.ip || ''));
+}));

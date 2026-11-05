@@ -3,9 +3,10 @@ import { pool } from './db.ts';
 import { newId } from './core/tokens.ts';
 import { CrmError, buildSet, markFirstResponse, oneOf, pickFields, tx, type Actor } from './crm-core.ts';
 
-export const ACTIVITY_TYPES = ['task', 'call', 'meeting', 'email', 'whatsapp', 'sms', 'follow_up', 'visit', 'demo', 'note'] as const;
+// Matches ActivityType in src/types/crm.ts (plus sms/call/visit/demo used by sequences and the visit log).
+export const ACTIVITY_TYPES = ['task', 'phone_call', 'call', 'meeting', 'site_visit', 'visit', 'email', 'whatsapp', 'sms', 'follow_up', 'demonstration', 'demo', 'negotiation', 'note'] as const;
 /** Outbound touches that count as the first response to a lead. */
-const TOUCH_TYPES = new Set(['call', 'meeting', 'email', 'whatsapp', 'sms', 'visit', 'demo']);
+const TOUCH_TYPES = new Set(['call', 'phone_call', 'meeting', 'site_visit', 'email', 'whatsapp', 'sms', 'visit', 'demo', 'demonstration', 'negotiation']);
 const COLS = ['activity_type', 'subject', 'description', 'due_date', 'priority', 'lead_id', 'account_id', 'contact_id', 'deal_id', 'ticket_id', 'assigned_employee_id',
   'direction', 'duration_minutes', 'location', 'reminder_at', 'outcome', 'outcome_notes'] as const;
 

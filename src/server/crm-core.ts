@@ -99,7 +99,31 @@ export function validEmail(e?: string | null): boolean {
 // ---------------------------------------------------------------------------------------------------------------------
 // Numbering (atomic; never reuses a number even after deletes)
 // ---------------------------------------------------------------------------------------------------------------------
-export async function nextNumber(db: Q, orgId: string, name: 'lead' | 'account' | 'deal' | 'quote' | 'ticket' | 'handoff', prefix: string): Promise<string> {
+type Counter = 'lead' | 'account' | 'deal' | 'quote' | 'ticket' | 'handoff';
+/** Table/column holding each kind of number, so the counter can be caught up with records created before it existed. */
+const NUMBER_SOURCE: Record<Counter, [string, string]> = {
+  lead: ['crm_leads', 'lead_number'], account: ['crm_accounts', 'account_number'], deal: ['crm_deals', 'deal_number'],
+  quote: ['crm_quotes', 'quote_number'], ticket: ['crm_tickets', 'ticket_number'], handoff: ['crm_deal_handoffs', 'handoff_number'],
+};
+const caughtUp = new Set<string>();
+
+export async function nextNumber(db: Q, orgId: string, name: Counter, prefix: string): Promise<string> {
+  // The first time a tenant/kind is used in this process, lift the counter to the highest number already stored, so numbers
+  // issued by older code (or imported data) are never handed out again. After that a plain atomic increment is enough.
+  const key = `${orgId}:${name}`;
+  if (!caughtUp.has(key)) {
+    const [table, col] = NUMBER_SOURCE[name];
+    const max = await db.query(
+      `SELECT COALESCE(MAX(NULLIF(REGEXP_REPLACE(${col}, '^.*-', ''), '')::BIGINT), 0)::text AS m FROM ${table} WHERE organization_id = $1 AND ${col} ~ '-[0-9]+$'`,
+      [orgId]
+    );
+    await db.query(
+      `INSERT INTO crm_counters (organization_id, name, value) VALUES ($1, $2, $3)
+       ON CONFLICT (organization_id, name) DO UPDATE SET value = GREATEST(crm_counters.value, EXCLUDED.value)`,
+      [orgId, name, max.rows[0].m]
+    );
+    caughtUp.add(key);
+  }
   const r = await db.query(
     `INSERT INTO crm_counters (organization_id, name, value) VALUES ($1, $2, 1)
      ON CONFLICT (organization_id, name) DO UPDATE SET value = crm_counters.value + 1

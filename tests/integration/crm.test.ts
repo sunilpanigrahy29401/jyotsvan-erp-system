@@ -53,6 +53,9 @@ describe.skipIf(!HAS_DB)('CRM module (real Postgres)', () => {
         `INSERT INTO employees (id, organization_id, employee_code, first_name, last_name, display_name, phone, email, joining_date, department_id, branch_id, status)
          VALUES ($1,$2,$3,'Rep',$4,$5,$6,$7,CURRENT_DATE,$8,$9,'active')`, [id, ORG, `ITC${i}`, String(i), `Rep ${i}`, `98000000${i}0`, `rep${i}@it-crm.test`, `dep-${ORG}`, `br-${ORG}`]);
     }
+    // A record numbered by older code, created before the counter existed: new numbers must continue after it, not collide.
+    await pool.query(`INSERT INTO crm_leads (id, organization_id, lead_number, first_name, last_name, display_name, phone) VALUES ('lead-it-legacy', $1, $2, 'Old', 'Lead', 'Old Lead', '9000000001')`,
+      [ORG, `LEAD-${new Date().getFullYear()}-0041`]);
     admin = await mkUser('usr-it-crm-admin', ORG, 'crm-admin@it-crm.test', true);
     sales = await mkUser('usr-it-crm-sales', ORG, 'crm-sales@it-crm.test', false, 'sales_manager');
     outsider = await mkUser('usr-it-crm-out', OTHER, 'crm-out@it-crm.test', true);
@@ -80,6 +83,12 @@ describe.skipIf(!HAS_DB)('CRM module (real Postgres)', () => {
     const ints = (await A.get('/integrations')).body.data;
     expect(ints.find((i: any) => i.provider === 'whatsapp').status).toBe('not_connected');
     expect(ints.every((i: any) => i.status !== 'connected')).toBe(true); // nothing is claimed connected without data
+  });
+
+  it('continues numbering after records that pre-date the counter', async () => {
+    const first = await A.post('/leads', { first_name: 'After', phone: phone() });
+    expect(first.status).toBe(201);
+    expect(first.body.data.lead_number).toBe(`LEAD-${new Date().getFullYear()}-0042`);
   });
 
   it('validates leads and detects duplicates across phone formats', async () => {
@@ -287,6 +296,22 @@ describe.skipIf(!HAS_DB)('CRM module (real Postgres)', () => {
     expect(v.summary.open_tickets).toBe(1);
     expect(v.summary.orders_available).toBe(false); // not linked to an operational record yet
     expect((await A.get('/accounts/acc-nope/360')).status).toBe(404);
+
+    // linking to an operational record makes it reachable from the 360 view
+    await pool.query(
+      `INSERT INTO retailers (id, organization_id, retailer_code, legal_name, display_name, phone, email, city, state, pincode, region, status)
+       VALUES ('ret-it-crm', $1, 'RIT-1', 'Link Test Retailer', 'Link Test', '9000000099', 'r@it-crm.test', 'Pune', 'MH', '411001', 'West', 'active')`, [ORG]);
+    const hit = (await A.get('/lookups/linkable?type=retailer&search=link%20test')).body.data;
+    expect(hit).toHaveLength(1);
+    expect((await A.post(`/accounts/${acc.id}/links`, { entity_type: 'retailer', entity_id: 'ret-nope' })).status).toBe(404);
+    const link = await A.post(`/accounts/${acc.id}/links`, { entity_type: 'retailer', entity_id: hit[0].id });
+    expect(link.status).toBe(201);
+    expect((await A.post(`/accounts/${acc.id}/links`, { entity_type: 'retailer', entity_id: hit[0].id })).status).toBe(409);
+    const v2 = (await A.get(`/accounts/${acc.id}/360`)).body.data;
+    expect(v2.summary.orders_available).toBe(true);
+    expect(v2.linked_records[0].entity_name).toBe('Link Test Retailer');
+    expect((await A.del(`/account-links/${link.body.data.id}`)).status).toBe(200);
+    expect((await A.post(`/accounts/${acc.id}/links`, { entity_type: 'planet', entity_id: 'x' })).status).toBe(400);
 
     // archive blocked by open deals
     const deal = (await A.post('/deals', { title: 'Open deal', account_id: acc.id, owner_employee_id: emp[1], expected_close_date: '2030-01-01', deal_value: 1000 })).body.data;

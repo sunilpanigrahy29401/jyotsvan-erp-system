@@ -28,7 +28,7 @@ Estimates are my judgement: *Code* = % of intended functionality present as code
 | Field sales | PI | 4.3k / 20 / 7 | 75 | 25 |
 | Finance (invoice, AR, payments) | PI | 5.7k / 25 / 18; GST e-invoice/e-way = preparation only, no IRP/GSP client found | 70 | 25 |
 | People / HRMS (attendance, leave, payroll, perf) | PI | 6.7k / 52 / 24; pending "Complete HRMS" master prompt exists in `public/assets/aistudio` | 70 | 20 |
-| CRM | **BRK** | 3.4k / 21 / 19; 4 TS errors: `CrmPage.tsx:86-88` passes `onNavigate` to components that don't accept it, `LeadCaptureIntegrations.tsx:176` uses non-existent `provider_key`. Vite still builds (esbuild ignores types) but props are silently dropped at runtime | 65 | 10 |
+| CRM | **WORKING (verified)** | Rebuilt 2026-11-05: authenticated, tenant-forced `/api/crm` (191 routes), 43 tables, 11 screens; 20 integration tests + browser walkthrough. Delivery of e-mail/SMS/WhatsApp, e-mail sync, Meta/IndiaMART API pulls and loyalty are NOT built — see `CRM_STATUS.md` for the PRD §5.3 matrix | 85 | 70 |
 | Notifications | PI | 13 handlers/4 tables; in-app only; **no websocket/email/SMS libraries present** (real-time/email/SMS = MISS) | 50 | 15 |
 | Audit logs | PI | 11 / 2 tables; actor/org client-supplied, so not tamper-evident | 60 | 10 |
 | Shopify | MOCK/PI | client + webhook handler; sandbox/simulated mode with placeholder creds | 65 | 15 |

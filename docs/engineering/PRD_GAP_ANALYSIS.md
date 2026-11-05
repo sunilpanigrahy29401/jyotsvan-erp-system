@@ -43,7 +43,8 @@ PART: price lists/schemes (some scheme/discount code), partial delivery (verify)
 GAP/unverified: Quotation stage (single mention), proforma, packing slip, recurring orders & reorder suggestions per partner, invoice PDF/WhatsApp sharing, RTO handling, incentive calculation.
 
 ## 5.3 CRM
-HAVE: leads/contacts/accounts/deals tables (19), pipeline stages, lead ingestion webhook (webform/Meta/Google/IndiaMART as a *source value*), 3 pipeline UI tabs. **BROKEN typecheck (KI-07).**
+**Updated 2026-11-05: see `CRM_STATUS.md` for the verified line-by-line matrix.** Built: full CRUD, custom pipelines/fields, dedup/scoring/auto-assignment/SLA, import/export, ingest for webform/IndiaMART push/Meta/Google payloads, quotations, Customer 360, helpdesk (SLA/escalation/CSAT/KB), consent/unsubscribe, templates/audiences/campaign queue/sequences, automation rules, KYC + visits, reports.
+STILL MISSING (see matrix): provider delivery (e-mail/SMS/WhatsApp), e-mail 2-way sync + tracking, calendar OAuth sync, Meta/IndiaMART API pulls, e-signature/PDF, loyalty, contact/account merge.
 STUB/GAP: IndiaMART connector logic beyond webhook source tag, dedup/scoring/auto-assignment (partial: verify), email 2-way sync, sequences, calendar sync, click-to-call, helpdesk/ticketing/CSAT/KB (no ticket code), customer 360, workflow automation, loyalty program, DPDP consent tracking.
 
 ## 5.4 Manufacturing

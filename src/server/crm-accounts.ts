@@ -209,6 +209,34 @@ export class CrmAccounts {
     return r.rows[0];
   }
 
+  // ---- links to operational records (retailer / distributor / C&F) -----------------------------------------------------
+  static async searchLinkable(orgId: string, type: string, search: string) {
+    const map: Record<string, [string, string]> = { retailer: ['retailers', 'retailer_code'], distributor: ['distributors', 'distributor_code'], cf: ['cfs', 'id'] };
+    const m = map[type];
+    if (!m) throw new CrmError('type must be retailer, distributor or cf.', 400, 'INVALID_TYPE');
+    const q = `%${String(search || '').toLowerCase()}%`;
+    return (await pool.query(`SELECT id, legal_name AS name, ${m[1]} AS code, status FROM ${m[0]} WHERE organization_id = $1 AND (LOWER(legal_name) LIKE $2 OR LOWER(${m[1]}::text) LIKE $2) ORDER BY legal_name LIMIT 25`, [orgId, q])).rows;
+  }
+
+  static async link(orgId: string, accountId: string, entityType: string, entityId: string) {
+    await CrmAccounts.get(orgId, accountId);
+    const table = ({ retailer: 'retailers', distributor: 'distributors', cf: 'cfs' } as Record<string, string>)[entityType];
+    if (!table) throw new CrmError('entity_type must be retailer, distributor or cf.', 400, 'INVALID_TYPE');
+    const found = (await pool.query(`SELECT legal_name FROM ${table} WHERE organization_id = $1 AND id = $2`, [orgId, entityId])).rows[0];
+    if (!found) throw new CrmError(`${entityType} not found in this organization.`, 404, 'NOT_FOUND');
+    const r = await pool.query(
+      `INSERT INTO crm_account_links (id, organization_id, account_id, entity_type, entity_id, entity_name) VALUES ($1,$2,$3,$4,$5,$6)
+       ON CONFLICT (account_id, entity_type, entity_id) DO NOTHING RETURNING *`, [newId('lnk'), orgId, accountId, entityType, entityId, found.legal_name]);
+    if (!r.rows.length) throw new CrmError('This account is already linked to that record.', 409, 'ALREADY_LINKED');
+    return r.rows[0];
+  }
+
+  static async unlink(orgId: string, linkId: string) {
+    const r = await pool.query(`DELETE FROM crm_account_links WHERE organization_id = $1 AND id = $2 RETURNING id`, [orgId, linkId]);
+    if (!r.rows.length) throw new CrmError('Link not found.', 404, 'NOT_FOUND');
+    return { id: linkId };
+  }
+
   // ---- onboarding / KYC ------------------------------------------------------------------------------------------
   static async listDocuments(orgId: string, accountId: string) {
     await CrmAccounts.get(orgId, accountId);

@@ -38,7 +38,7 @@ InsForge (managed BaaS). Gemini (optional) for AI. TypeScript throughout (ESM, `
 server.ts                  Express app, health/db/auth-profile routes, router mounts, runAllMigrations()
 src/server/app.ts          createApp(): security middleware chain + router mounts (testable; server.ts only listens)
 src/server/core/           auth, sessions, permission map, tenant context, RLS pool, migrator, audit, admin (users/roles) routes
-src/server/migrations/     versioned SQL (0001 auth, 0002 permissions, 0003 schema compat)
+src/server/migrations/     versioned SQL (0001 auth … 0005, 0006 crm core, 0007 crm full)
 src/server/                *-routes.ts (30 routers), *-service.ts, migrate-*.ts (legacy, run by `db:migrate --legacy`), db.ts, integrations/, ai-*.ts
 tests/                     unit + integration (real Postgres) tests
 src/app/pages/<module>/    UI per module (~22 dirs); top-level *Page.tsx are shells/routers (state-based routing, no react-router)
@@ -65,5 +65,5 @@ files parsed partially (syntax-error regions) so distributor-UI dependency edges
 
 ## Engineering docs index (`docs/engineering/`)
 SYSTEM_OVERVIEW · DATABASE_ARCHITECTURE · DATABASE_MIGRATIONS · API_ARCHITECTURE · SECURITY_ARCHITECTURE ·
-MODULE_DEPENDENCIES · IMPLEMENTATION_STATUS · KNOWN_ISSUES · LIVE_DATABASE_FINDINGS · OPERATIONS_RUNBOOK · TESTING_STRATEGY · PRD_GAP_ANALYSIS · BUILD_PLAN · `modules/` (per-domain notes).
+MODULE_DEPENDENCIES · IMPLEMENTATION_STATUS · CRM_STATUS · KNOWN_ISSUES · LIVE_DATABASE_FINDINGS · OPERATIONS_RUNBOOK · TESTING_STRATEGY · PRD_GAP_ANALYSIS · BUILD_PLAN · `modules/` (per-domain notes).
 Target spec: `docs/PRD_Jyotsvan_ERP.md` (PRD is the source of truth for scope; BUILD_PLAN.md sequences it).

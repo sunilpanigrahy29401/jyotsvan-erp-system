@@ -12,6 +12,7 @@ import {
   Layers
 } from 'lucide-react';
 import { CrmApi } from '../../../services/crmApi';
+import { ConfirmModal, EmployeeSelect, useAction, inputCls } from './shared.tsx';
 import type { 
   Deal, 
   Pipeline, 
@@ -51,7 +52,10 @@ export const DealsPipeline: React.FC<DealsPipelineProps> = ({ onNavigate }) => {
     stageId: '',
     expectedCloseDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     description: '',
+    ownerId: '',
   });
+  const { run } = useAction();
+  const [lostPrompt, setLostPrompt] = useState<{ dealId: string; stageId: string } | null>(null);
 
   const loadData = async () => {
     try {
@@ -98,28 +102,29 @@ export const DealsPipeline: React.FC<DealsPipelineProps> = ({ onNavigate }) => {
     }
   };
 
-  const handleStageChange = async (dealId: string, newStageId: string) => {
-    try {
-      const updated = await CrmApi.updateDealStage(dealId, newStageId);
-      setDeals(prev => prev.map(d => d.id === dealId ? updated : d));
-
-      // If moved to won, prompt handoff
-      const targetStage = stages.find(s => s.id === newStageId);
-      if (targetStage?.is_won_stage) {
-        setSelectedDealForHandoff(updated);
-      }
-    } catch (err) {
-      console.error('Failed to update stage', err);
+  const handleStageChange = async (dealId: string, newStageId: string, reason?: string) => {
+    const targetStage = stages.find(s => s.id === newStageId);
+    // Losing a deal needs a reason (it feeds win/loss analytics), so ask before calling the API.
+    if (targetStage?.is_lost_stage && !reason) { setLostPrompt({ dealId, stageId: newStageId }); return; }
+    const updated = await run(() => CrmApi.updateDealStage(dealId, newStageId, undefined, reason ? { win_loss_reason: reason } : {}));
+    if (!updated) return;
+    // The API returns the bare deal row; keep the joined display fields (account name, etc.) from the list.
+    const merged = (prev: Deal) => ({ ...prev, ...updated });
+    setDeals(prev => prev.map(d => d.id === dealId ? merged(d) : d));
+    if (targetStage?.is_won_stage) {
+      setSelectedDealForHandoff(merged(deals.find(d => d.id === dealId) as Deal));
     }
   };
 
   const handleCreateDeal = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!dealForm.title || !dealForm.accountId) return;
+    if (!dealForm.ownerId) { alert('Choose a deal owner.'); return; }
 
-    try {
+    {
       const initialStage = dealForm.stageId || stages[0]?.id;
-      const created = await CrmApi.createDeal({
+      const created = await run(() => CrmApi.createDeal({
+        owner_employee_id: dealForm.ownerId,
         title: dealForm.title,
         account_id: dealForm.accountId,
         primary_contact_id: dealForm.contactId || undefined,
@@ -128,9 +133,10 @@ export const DealsPipeline: React.FC<DealsPipelineProps> = ({ onNavigate }) => {
         deal_value: parseFloat(dealForm.dealValue) || 0,
         expected_close_date: dealForm.expectedCloseDate,
         description: dealForm.description,
-      });
-
-      setDeals(prev => [created, ...prev]);
+      }), 'Deal created.');
+      if (!created) return;
+      const account = accounts.find(a => a.id === dealForm.accountId);
+      setDeals(prev => [{ ...created, account_name: account?.name } as Deal, ...prev]);
       setShowCreateDealModal(false);
       setDealForm({
         title: '',
@@ -140,31 +146,26 @@ export const DealsPipeline: React.FC<DealsPipelineProps> = ({ onNavigate }) => {
         stageId: '',
         expectedCloseDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         description: '',
+        ownerId: '',
       });
-    } catch (err) {
-      console.error('Failed to create deal', err);
     }
   };
 
   const handleInitiateHandoff = async () => {
     if (!selectedDealForHandoff) return;
-    try {
-      setSubmittingHandoff(true);
-      const res = await CrmApi.createDealHandoff(selectedDealForHandoff.id, {
-        special_terms: handoffNotes,
-        delivery_timeline: 'Immediate dispatch upon commercial approval'
-      });
-      setHandoffSuccess(`Sales handoff #${res.id.slice(0, 8)} successfully registered! Operational fulfillment team notified.`);
-      setTimeout(() => {
-        setHandoffSuccess(null);
-        setSelectedDealForHandoff(null);
-        setHandoffNotes('');
-      }, 3000);
-    } catch (err) {
-      console.error('Handoff creation failed', err);
-    } finally {
-      setSubmittingHandoff(false);
-    }
+    setSubmittingHandoff(true);
+    const res = await run(() => CrmApi.createDealHandoff(selectedDealForHandoff.id, {
+      special_terms: handoffNotes,
+      delivery_timeline: 'Immediate dispatch upon commercial approval'
+    }));
+    setSubmittingHandoff(false);
+    if (!res) return;
+    setHandoffSuccess(`Sales handoff ${(res as any).handoff_number || ''} registered and waiting for operations review.`);
+    setTimeout(() => {
+      setHandoffSuccess(null);
+      setSelectedDealForHandoff(null);
+      setHandoffNotes('');
+    }, 3000);
   };
 
   // Filter deals by search
@@ -440,6 +441,11 @@ export const DealsPipeline: React.FC<DealsPipelineProps> = ({ onNavigate }) => {
                 </div>
               </div>
 
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Deal Owner *</label>
+                <EmployeeSelect value={dealForm.ownerId} onChange={(v) => setDealForm({ ...dealForm, ownerId: v })} allowNone={false} className={inputCls} />
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
@@ -591,6 +597,11 @@ export const DealsPipeline: React.FC<DealsPipelineProps> = ({ onNavigate }) => {
             )}
           </div>
         </div>
+      )}
+      {lostPrompt && (
+        <ConfirmModal title="Mark deal as lost" message="Record why this deal was lost. It feeds win/loss analysis." confirmLabel="Mark lost" danger withReason="Reason for loss"
+          onClose={() => setLostPrompt(null)}
+          onConfirm={(reason) => { const p = lostPrompt; setLostPrompt(null); void handleStageChange(p.dealId, p.stageId, reason); }} />
       )}
     </div>
   );

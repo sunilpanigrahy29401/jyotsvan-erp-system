@@ -10,6 +10,7 @@ import {
   Zap,
   Code
 } from 'lucide-react';
+import { StatusPill, useAction } from './shared.tsx';
 import { CrmApi } from '../../../services/crmApi';
 import type { CrmIntegrationConfig } from '../../../types/crm';
 
@@ -39,6 +40,7 @@ export const LeadCaptureIntegrations: React.FC<LeadCaptureIntegrationsProps> = (
   const [simResult, setSimResult] = useState<any | null>(null);
   const [simError, setSimError] = useState<string | null>(null);
   const [simulating, setSimulating] = useState<boolean>(false);
+  const { run } = useAction();
 
   const loadData = async () => {
     try {
@@ -89,17 +91,11 @@ export const LeadCaptureIntegrations: React.FC<LeadCaptureIntegrationsProps> = (
     setTimeout(() => setCopiedKey(false), 2000);
   };
 
-  const getSourceStatusBadge = (status: string) => {
-    switch (status) {
-      case 'active':
-        return <span className="px-2 py-0.5 text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full">Connected & Active</span>;
-      case 'awaiting_credentials':
-        return <span className="px-2 py-0.5 text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 rounded-full">Awaiting Credentials</span>;
-      case 'config_required':
-        return <span className="px-2 py-0.5 text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200 rounded-full">Configuration Required</span>;
-      default:
-        return <span className="px-2 py-0.5 text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 rounded-full">{status}</span>;
-    }
+  const getSourceStatusBadge = (status: string) => <StatusPill value={status} />;
+
+  const toggleProvider = async (provider: string, enabled: boolean) => {
+    const r = await run(() => CrmApi.setIntegrationEnabled(provider, enabled), enabled ? 'Channel enabled.' : 'Channel disabled.');
+    if (r) await loadData();
   };
 
   return (
@@ -140,7 +136,7 @@ export const LeadCaptureIntegrations: React.FC<LeadCaptureIntegrationsProps> = (
               {typeof window !== 'undefined' ? window.location.origin : 'https://jyotsvan.enterprise'}/api/crm/webhooks/inbound
             </div>
             <p className="text-xs text-slate-400">
-              Payloads are authenticated via idempotency key and phone deduplication check. Automatically parses lead source, company, contact, and scores readiness.
+              Send the header <code className="font-mono text-emerald-300">x-ingest-key</code> (the server's <code className="font-mono text-emerald-300">CRM_INGEST_KEY</code>) and add <code className="font-mono text-emerald-300">?source=indiamart|meta_ads|google_ads|webform</code>. Leads are de-duplicated, scored and auto-assigned; repeat deliveries are ignored.
             </p>
           </div>
 
@@ -168,18 +164,20 @@ export const LeadCaptureIntegrations: React.FC<LeadCaptureIntegrationsProps> = (
                   {getSourceStatusBadge(cfg.status)}
                 </div>
                 <p className="text-xs text-slate-500 mb-3">
-                  {cfg.status === 'awaiting_credentials' 
-                    ? 'API credentials pending configuration in enterprise vault.' 
-                    : 'Ingestion pipeline established and ready for webhook payloads.'}
+                  {cfg.note || (cfg.status === 'disabled' ? 'Disabled: payloads from this channel are rejected.' : 'Receiving leads.')}
                 </p>
-                <div className="text-xs font-mono text-slate-400 bg-slate-50 px-2 py-1 rounded border border-slate-200">
-                  provider: {cfg.provider}
+                <div className="text-xs font-mono text-slate-400 bg-slate-50 px-2 py-1 rounded border border-slate-200 break-all">
+                  {cfg.endpoint ? `POST ${cfg.endpoint}` : `provider: ${cfg.provider}`}
                 </div>
               </div>
 
               <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-                <span>Webhook Ingestion</span>
-                <span className="text-emerald-600 font-medium">Ready</span>
+                <span>{cfg.total_records_ingested} received · {cfg.failed_records_count} failed{cfg.last_successful_sync ? ` · last ${new Date(cfg.last_successful_sync).toLocaleString('en-IN')}` : ''}</span>
+                {cfg.endpoint && (
+                  <button className="text-blue-600 hover:underline" onClick={() => toggleProvider(cfg.provider, cfg.status === 'disabled')}>
+                    {cfg.status === 'disabled' ? 'Enable' : 'Disable'}
+                  </button>
+                )}
               </div>
             </div>
           ))}
@@ -193,8 +191,8 @@ export const LeadCaptureIntegrations: React.FC<LeadCaptureIntegrationsProps> = (
             <Terminal className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-slate-900">Interactive Lead Ingestion Simulator</h2>
-            <p className="text-xs text-slate-500">Test live payload dispatch to verify lead creation, duplicate detection, and dynamic scoring</p>
+            <h2 className="text-lg font-bold text-slate-900">Test lead capture</h2>
+            <p className="text-xs text-slate-500">Sends a payload through the real capture pipeline (duplicate detection, scoring, auto-assignment). This creates a real lead — delete it afterwards if it is only a test.</p>
           </div>
         </div>
 
