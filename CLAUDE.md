@@ -14,6 +14,7 @@ InsForge (managed BaaS). Gemini (optional) for AI. TypeScript throughout (ESM, `
 | Task | Command |
 |---|---|
 | Install | `bun install --frozen-lockfile` |
+| Local config | `npm run setup:env` creates a git-ignored `.env` (generates secrets; `-- --force --with-database` also fetches DATABASE_URL via the InsForge CLI). Scripts load `.env` automatically via `--env-file-if-exists`. **Never commit `.env`.** |
 | Typecheck | `npx tsc --noEmit` (0 errors) |
 | Tests | `TEST_DATABASE_URL=postgres://… npx vitest run` — integration tests need a **disposable** Postgres (URL must look like test/ci/local); without it only unit tests run |
 | Build | `npm run build` (frontend + `dist/server.cjs`) |

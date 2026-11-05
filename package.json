@@ -4,18 +4,19 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx server.ts",
+    "dev": "tsx --env-file-if-exists=.env server.ts",
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
-    "start": "node dist/server.cjs",
+    "start": "node --env-file-if-exists=.env dist/server.cjs",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "db:migrate": "tsx src/server/cli/migrate.ts",
-    "user": "tsx src/server/cli/user.ts",
+    "db:migrate": "tsx --env-file-if-exists=.env src/server/cli/migrate.ts",
+    "user": "tsx --env-file-if-exists=.env src/server/cli/user.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "db:rls": "tsx src/server/cli/rls.ts"
+    "db:rls": "tsx --env-file-if-exists=.env src/server/cli/rls.ts",
+    "setup:env": "node scripts/setup-env.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

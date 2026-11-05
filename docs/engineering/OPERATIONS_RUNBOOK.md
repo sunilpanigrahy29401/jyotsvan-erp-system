@@ -10,7 +10,7 @@ How to run, deploy and operate the platform safely. Everything here was exercise
 | `DATABASE_URL` | PostgreSQL. TLS is verified by default (`DATABASE_SSL_CA` for a private CA) |
 | `NODE_ENV=production` | enables production behaviour (no boot migrations, strict TLS, secure cookies, CSP report-only) |
 | `TRUST_PROXY=<n>` | set when behind a reverse proxy so client IPs/rate limits are real |
-See `.env.example` for the full list. `VITE_`-prefixed values are the only ones sent to the browser.
+See `.env.example` for the full list. Locally: `npm run setup:env` (git-ignored `.env`, secrets generated; scripts read it via `--env-file-if-exists`). In production set real values in the host's secret store; do not copy a development `.env`. `VITE_`-prefixed values are the only ones sent to the browser.
 
 ## 2. First deployment (clean database)
 ```bash
