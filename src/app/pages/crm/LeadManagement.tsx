@@ -6,7 +6,9 @@ import {
   Users, Search, Filter, Plus, ArrowRight, UserCheck, ShieldAlert, Phone, Mail, 
   Building2, MapPin, Calendar, Clock, RefreshCw, CheckCircle, Tag, Check, AlertCircle, X, ExternalLink
 } from 'lucide-react';
-import { CrmApi } from '../../../services/crmApi.ts';
+import { CrmApi, CrmApiError } from '../../../services/crmApi.ts';
+import { LeadDetailPanels, LeadToolbar } from './LeadExtras.tsx';
+import { EmployeeSelect, useEmployees } from './shared.tsx';
 import type { Lead, LeadStatus, LeadPriority, CommercialRelationshipType } from '../../../types/crm.ts';
 
 interface LeadManagementProps {
@@ -31,7 +33,9 @@ export function LeadManagement({ onLeadConverted }: LeadManagementProps) {
   const [showConvertModal, setShowConvertModal] = useState(false);
 
   // Assign form
-  const [assigneeId, setAssigneeId] = useState('emp-007');
+  const employees = useEmployees();
+  const [assigneeId, setAssigneeId] = useState('');
+  const [convertOwnerId, setConvertOwnerId] = useState('');
   const [assignTeam, setAssignTeam] = useState('Commercial Sales');
 
   // Convert form
@@ -54,8 +58,8 @@ export function LeadManagement({ onLeadConverted }: LeadManagementProps) {
     estimated_deal_value: 500000,
     purchase_timeline: '30_days',
     priority: 'medium',
-    city: 'Mumbai',
-    state: 'Maharashtra',
+    city: '',
+    state: '',
   });
 
   const loadLeads = async () => {
@@ -93,7 +97,16 @@ export function LeadManagement({ onLeadConverted }: LeadManagementProps) {
     }
     setIsSubmitting(true);
     try {
-      await CrmApi.createLead(newLead);
+      try {
+        await CrmApi.createLead(newLead);
+      } catch (err: any) {
+        // A matching lead/contact/account already exists: let the user decide instead of silently creating a duplicate.
+        if (err instanceof CrmApiError && err.code === 'DUPLICATE' && window.confirm(`${err.message}\n\nCreate this lead anyway?`)) {
+          await CrmApi.createLead({ ...newLead, allow_duplicate: true });
+        } else {
+          throw err;
+        }
+      }
       setShowCreateModal(false);
       setNewLead({
         first_name: '',
@@ -107,8 +120,8 @@ export function LeadManagement({ onLeadConverted }: LeadManagementProps) {
         estimated_deal_value: 500000,
         purchase_timeline: '30_days',
         priority: 'medium',
-        city: 'Mumbai',
-        state: 'Maharashtra',
+        city: '',
+        state: '',
       });
       loadLeads();
     } catch (err: any) {
@@ -120,6 +133,7 @@ export function LeadManagement({ onLeadConverted }: LeadManagementProps) {
 
   const handleAssignSubmit = async () => {
     if (!selectedLead) return;
+    if (!assigneeId) { alert('Choose a representative.'); return; }
     setIsSubmitting(true);
     try {
       await CrmApi.assignLead(selectedLead.id, assigneeId, assignTeam);
@@ -141,12 +155,24 @@ export function LeadManagement({ onLeadConverted }: LeadManagementProps) {
     if (!selectedLead) return;
     setIsSubmitting(true);
     try {
-      await CrmApi.convertLead(selectedLead.id, {
+      const payload = {
         account_name: convertAccountName || selectedLead.company_name || `${selectedLead.display_name} Commercial Account`,
         deal_title: convertDealTitle || undefined,
         deal_value: convertDealValue || undefined,
         expected_close_date: convertCloseDate || undefined,
-      });
+        owner_employee_id: convertOwnerId || selectedLead.assigned_employee_id || undefined,
+      };
+      try {
+        await CrmApi.convertLead(selectedLead.id, payload);
+      } catch (err: any) {
+        // An account with the same phone/e-mail/GSTIN exists: offer to link to it rather than creating a second one.
+        const match = err instanceof CrmApiError && err.code === 'DUPLICATE' ? (err.extra?.matches?.[0] as any) : null;
+        if (match && window.confirm(`${err.message}\n\nLink this lead to "${match.label}" instead?`)) {
+          await CrmApi.convertLead(selectedLead.id, { ...payload, existing_account_id: match.id });
+        } else {
+          throw err;
+        }
+      }
       setShowConvertModal(false);
       setSelectedLead(null);
       loadLeads();
@@ -217,9 +243,13 @@ export function LeadManagement({ onLeadConverted }: LeadManagementProps) {
             <option value="new">New Inquiries</option>
             <option value="assigned">Assigned</option>
             <option value="contacted">Contacted</option>
+            <option value="attempted">Attempted</option>
             <option value="qualified">Qualified</option>
+            <option value="nurturing">Nurturing</option>
+            <option value="unqualified">Unqualified</option>
             <option value="converted">Converted</option>
             <option value="lost">Lost</option>
+            <option value="archived">Archived</option>
           </select>
 
           {/* Relationship Filter */}
@@ -259,6 +289,8 @@ export function LeadManagement({ onLeadConverted }: LeadManagementProps) {
           </button>
         </div>
       </div>
+
+      <LeadToolbar filters={{ status: statusFilter, priority: priorityFilter, search }} onChanged={loadLeads} />
 
       {error && (
         <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-xs flex items-center gap-2">
@@ -307,7 +339,7 @@ export function LeadManagement({ onLeadConverted }: LeadManagementProps) {
                   >
                     <td className="py-3 px-4">
                       <div className="font-semibold text-slate-900">{l.display_name}</div>
-                      <div className="text-[10px] text-slate-400 font-mono">{l.lead_number} • {l.phone}</div>
+                      <div className="text-[10px] text-slate-400 font-mono">{l.lead_number} • {l.phone}{(l as any).sla_overdue && <span className="ml-1.5 px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 font-bold font-sans">SLA</span>}</div>
                     </td>
                     <td className="py-3 px-4">
                       <div className="text-slate-800 font-medium">{l.company_name || '—'}</div>
@@ -485,6 +517,15 @@ export function LeadManagement({ onLeadConverted }: LeadManagementProps) {
                   </div>
                 </div>
               </div>
+
+              <LeadDetailPanels
+                lead={selectedLead}
+                onChanged={async () => {
+                  loadLeads();
+                  try { setSelectedLead(await CrmApi.getLeadById(selectedLead.id)); } catch { /* keep the current view */ }
+                }}
+                onArchived={() => setSelectedLead(null)}
+              />
 
               {/* Conversion Status if Converted */}
               {selectedLead.is_converted && (
@@ -684,10 +725,8 @@ export function LeadManagement({ onLeadConverted }: LeadManagementProps) {
                   onChange={(e) => setAssigneeId(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none"
                 >
-                  <option value="emp-007">Vikram Sharma (Area Sales Manager)</option>
-                  <option value="emp-008">Rajesh Mohanty (Plant Operations / Field)</option>
-                  <option value="emp-011">Priya Nair (HR & Corporate Lead)</option>
-                  <option value="emp-001">Aarav Singhania (CEO / Key Accounts)</option>
+                  <option value="">Select a representative…</option>
+                  {employees.map((e) => <option key={e.id} value={e.id}>{e.display_name}{e.designation ? ` (${e.designation})` : ''}</option>)}
                 </select>
               </div>
 
@@ -775,6 +814,12 @@ export function LeadManagement({ onLeadConverted }: LeadManagementProps) {
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Opportunity Owner</label>
+                <EmployeeSelect value={convertOwnerId || selectedLead.assigned_employee_id || ''} onChange={setConvertOwnerId} allowNone={false} />
+                <span className="block text-[10px] text-slate-400 mt-1">Required when an opportunity is created.</span>
               </div>
 
               <div>

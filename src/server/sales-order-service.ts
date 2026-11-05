@@ -977,7 +977,7 @@ export class SalesOrderService {
     const returnStatsRes = await pool.query(
       `SELECT 
          COUNT(*) as total_active_returns,
-         COALESCE(SUM(grand_total), 0)::float as total_returns_value
+         COALESCE(SUM(total_refund_amount), 0)::float as total_returns_value
        FROM sales_returns
        WHERE organization_id = $1 AND status NOT IN ('cancelled', 'completed')`,
       [orgId]

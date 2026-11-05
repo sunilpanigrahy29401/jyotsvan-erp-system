@@ -117,12 +117,15 @@ export const ActivitiesAndEngagement: React.FC<ActivitiesAndEngagementProps> = (
   const handleCompleteActivity = async () => {
     if (!completingActivityId) return;
     try {
-      const updated = await CrmApi.completeActivity(
+      const { activity: updated, next_follow_up } = await CrmApi.completeActivity(
         completingActivityId,
         completionOutcome,
         completionNotes
       );
-      setActivities(prev => prev.map(a => a.id === completingActivityId ? updated : a));
+      setActivities(prev => {
+        const next = prev.map(a => a.id === completingActivityId ? { ...a, ...updated } : a);
+        return next_follow_up ? [next_follow_up, ...next] : next;
+      });
       setCompletingActivityId(null);
       setCompletionNotes('');
     } catch (err) {

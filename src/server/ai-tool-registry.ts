@@ -18,6 +18,13 @@ export interface AiToolDefinition {
   execute: (args: Record<string, any>, ctx: AiToolContext) => Promise<any>;
 }
 
+
+/** Permission check for AI tools. Authority comes only from the verified permission list; role *names* grant nothing. */
+function toolPermits(ctx: AiToolContext, required?: string): boolean {
+  if (!required) return true;
+  return ctx.userPermissions.includes('*:*') || ctx.userPermissions.includes(required);
+}
+
 export class AiToolRegistry {
   private static tools: Map<string, AiToolDefinition> = new Map();
 
@@ -33,11 +40,7 @@ export class AiToolRegistry {
     const list: AiToolDefinition[] = [];
     for (const tool of this.tools.values()) {
       // Permission verification
-      const hasPerm =
-        ctx.userRole === 'super_admin' ||
-        ctx.userRole === 'admin' ||
-        !tool.requiredPermission ||
-        ctx.userPermissions.includes(tool.requiredPermission);
+      const hasPerm = toolPermits(ctx, tool.requiredPermission);
 
       if (hasPerm) {
         list.push(tool);
@@ -60,11 +63,7 @@ export class AiToolRegistry {
       };
     }
 
-    const hasPerm =
-      ctx.userRole === 'super_admin' ||
-      ctx.userRole === 'admin' ||
-      !tool.requiredPermission ||
-      ctx.userPermissions.includes(tool.requiredPermission);
+    const hasPerm = toolPermits(ctx, tool.requiredPermission);
 
     if (!hasPerm) {
       return {
@@ -95,42 +94,55 @@ export class AiToolRegistry {
 // Register Standard Controlled Tools
 // -------------------------------------------------------------
 
+
+// All tools below answer ONLY from the tenant's real data. When there is nothing to report they say so
+// (`dataAvailable: false`) instead of inventing figures. Every query is parameterised and tenant-scoped.
+
+function periodDays(period?: string): number {
+  const m = /^(\d{1,3})d$/.exec(period || '30d');
+  const n = m ? Number(m[1]) : 30;
+  return Math.min(Math.max(n, 1), 365);
+}
+
+const num = (v: unknown) => Number(v ?? 0);
+const money = (v: unknown) => Math.round(num(v) * 100) / 100;
+
 // 1. Sales Summary
 AiToolRegistry.register({
   name: 'get_sales_summary',
-  description: 'Retrieve validated sales revenue, orders count, AOV, and top-performing SKUs for a specified date period.',
-  requiredPermission: 'sales.view',
+  description: 'Retrieve sales revenue, order count, average order value and top-selling SKUs for a recent period.',
+  requiredPermission: 'sales_orders.view',
   parameters: {
     period: { type: 'string', description: 'Period such as 7d, 30d, or 90d', required: false },
   },
   execute: async (args, ctx) => {
-    let gross = 4850000;
-    let cnt = 1420;
-    try {
-      const res = await pool.query(
-        `SELECT COUNT(*) as orders_count, COALESCE(SUM(total_amount), 4850000) as gross_revenue FROM sales_orders WHERE organization_id = $1`,
-        [ctx.organizationId]
-      );
-      if (res.rows[0]) {
-        gross = parseFloat(res.rows[0].gross_revenue || '4850000');
-        cnt = parseInt(res.rows[0].orders_count || '1420', 10);
-      }
-    } catch {
-      // Graceful fallback to verified canonical dataset if external pool is cold
-      gross = 4850000;
-      cnt = 1420;
-    }
+    const days = periodDays(args.period);
+    const totals = await pool.query(
+      `SELECT COUNT(*)::int AS orders, COALESCE(SUM(grand_total), 0) AS revenue
+         FROM sales_orders
+        WHERE organization_id = $1 AND order_date >= CURRENT_DATE - ($2::int * INTERVAL '1 day')
+          AND COALESCE(order_status, status) NOT IN ('cancelled', 'draft')`,
+      [ctx.organizationId, days]
+    );
+    const orders = num(totals.rows[0].orders);
+    if (orders === 0) return { period: `${days}d`, dataAvailable: false, message: 'No sales orders in this period.' };
+    const top = await pool.query(
+      `SELECT i.sku_code_snapshot AS sku, i.product_name_snapshot AS title,
+              SUM(i.ordered_quantity)::float AS units, SUM(i.net_amount)::float AS revenue
+         FROM sales_order_items i JOIN sales_orders o ON o.id = i.sales_order_id
+        WHERE o.organization_id = $1 AND o.order_date >= CURRENT_DATE - ($2::int * INTERVAL '1 day')
+          AND COALESCE(o.order_status, o.status) NOT IN ('cancelled', 'draft')
+        GROUP BY i.sku_code_snapshot, i.product_name_snapshot ORDER BY revenue DESC LIMIT 5`,
+      [ctx.organizationId, days]
+    );
+    const revenue = money(totals.rows[0].revenue);
     return {
-      period: args.period || '30d',
-      grossSalesRevenue: gross,
-      totalOrders: cnt,
-      averageOrderValue: Math.round(gross / (cnt || 1)),
-      growthMoM: '+14.8%',
-      topSellingSkus: [
-        { sku: 'JY-KUM-OIL-30ML', title: 'Jyotsvan Kumkumadi Radiant Facial Oil 30ml', units: 1420, revenue: 1205580 },
-        { sku: 'JY-BHR-OIL-200ML', title: 'Jyotsvan Bhringraj Intensive Hair Growth Oil 200ml', units: 1180, revenue: 624220 },
-        { sku: 'JY-NAL-THAI-100ML', title: 'Jyotsvan Nalpamaradi Skin Brightening Thailam 100ml', units: 890, revenue: 613210 },
-      ],
+      period: `${days}d`,
+      dataAvailable: true,
+      grossSalesRevenue: revenue,
+      totalOrders: orders,
+      averageOrderValue: Math.round(revenue / orders),
+      topSellingSkus: top.rows,
     };
   },
 });
@@ -138,21 +150,38 @@ AiToolRegistry.register({
 // 2. Inventory Summary
 AiToolRegistry.register({
   name: 'get_inventory_summary',
-  description: 'Retrieve current warehouse stock balances, total valuation, low stock items, and safety buffer holds.',
+  description: 'Retrieve current stock quantities, valuation at cost, warehouse count and SKUs at or below reorder level.',
   requiredPermission: 'inventory.view',
   parameters: {
-    warehouseId: { type: 'string', description: 'Optional warehouse location ID', required: false },
+    warehouseId: { type: 'string', description: 'Optional warehouse ID', required: false },
   },
   execute: async (args, ctx) => {
+    const wh: string | null = typeof args.warehouseId === 'string' && args.warehouseId ? args.warehouseId : null;
+    const stock = await pool.query(
+      `SELECT COALESCE(SUM(b.total_quantity), 0)::float AS units,
+              COALESCE(SUM(b.total_quantity * COALESCE(s.cost_price, 0)), 0)::float AS valuation,
+              COUNT(DISTINCT b.warehouse_id)::int AS warehouses
+         FROM inventory_balances b JOIN skus s ON s.id = b.sku_id
+        WHERE b.organization_id = $1 AND ($2::text IS NULL OR b.warehouse_id = $2)`,
+      [ctx.organizationId, wh]
+    );
+    if (num(stock.rows[0].units) === 0) return { dataAvailable: false, message: 'No stock balances recorded.' };
+    const low = await pool.query(
+      `SELECT s.sku AS sku, s.variant_name AS title, SUM(b.available_quantity)::float AS available,
+              s.reorder_level AS reorder_level
+         FROM skus s JOIN inventory_balances b ON b.sku_id = s.id
+        WHERE s.organization_id = $1 AND ($2::text IS NULL OR b.warehouse_id = $2)
+        GROUP BY s.id, s.sku, s.variant_name, s.reorder_level
+       HAVING SUM(b.available_quantity) <= COALESCE(s.reorder_level, 0)
+        ORDER BY SUM(b.available_quantity) ASC LIMIT 10`,
+      [ctx.organizationId, wh]
+    );
     return {
-      totalValuation: 12450000,
-      totalStockUnits: 68400,
-      activeWarehouses: 4,
-      lowStockAlerts: [
-        { sku: 'JY-KUM-OIL-30ML', title: 'Kumkumadi Facial Oil 30ml', available: 840, bufferHold: 150, daysOfCover: 12, status: 'REPLENISHMENT_RECOMMENDED' },
-        { sku: 'JY-ASH-CHW-500G', title: 'Ashwagandha Vitality Churna 500g', available: 290, bufferHold: 40, daysOfCover: 16, status: 'ADEQUATE' },
-      ],
-      turnoverRatio: 5.8,
+      dataAvailable: true,
+      totalStockUnits: stock.rows[0].units,
+      totalValuationAtCost: money(stock.rows[0].valuation),
+      activeWarehouses: stock.rows[0].warehouses,
+      lowStockSkus: low.rows,
     };
   },
 });
@@ -160,25 +189,36 @@ AiToolRegistry.register({
 // 3. Outstanding AR Summary
 AiToolRegistry.register({
   name: 'get_outstanding_summary',
-  description: 'Retrieve accounts receivable (AR) aging, overdue credit balance, and customers with highest debt.',
-  requiredPermission: 'finance.view',
+  description: 'Retrieve receivables: total invoiced, collected, outstanding, and overdue amounts by ageing bucket.',
+  requiredPermission: 'outstanding.view',
   parameters: {},
-  execute: async (args, ctx) => {
+  execute: async (_args, ctx) => {
+    const r = await pool.query(
+      `SELECT COUNT(*)::int AS invoices,
+              COALESCE(SUM(grand_total), 0) AS invoiced,
+              COALESCE(SUM(amount_paid), 0) AS collected,
+              COALESCE(SUM(amount_outstanding), 0) AS outstanding,
+              COALESCE(SUM(amount_outstanding) FILTER (WHERE due_date >= CURRENT_DATE), 0) AS not_due,
+              COALESCE(SUM(amount_outstanding) FILTER (WHERE due_date < CURRENT_DATE AND due_date >= CURRENT_DATE - 30), 0) AS overdue_1_30,
+              COALESCE(SUM(amount_outstanding) FILTER (WHERE due_date < CURRENT_DATE - 30 AND due_date >= CURRENT_DATE - 60), 0) AS overdue_31_60,
+              COALESCE(SUM(amount_outstanding) FILTER (WHERE due_date < CURRENT_DATE - 60), 0) AS overdue_61_plus
+         FROM invoices
+        WHERE organization_id = $1 AND status NOT IN ('draft', 'cancelled')`,
+      [ctx.organizationId]
+    );
+    const x = r.rows[0];
+    if (num(x.invoices) === 0) return { dataAvailable: false, message: 'No posted invoices.' };
     return {
-      totalInvoiced: 4620000,
-      totalCollected: 3890000,
-      totalOutstandingAR: 730000,
-      collectionEfficiency: '84.2%',
+      dataAvailable: true,
+      totalInvoiced: money(x.invoiced),
+      totalCollected: money(x.collected),
+      totalOutstandingAR: money(x.outstanding),
       agingBuckets: {
-        current_0_30: 537000,
-        overdue_31_60: 135000,
-        critical_61_plus: 58000,
+        not_due: money(x.not_due),
+        overdue_1_30: money(x.overdue_1_30),
+        overdue_31_60: money(x.overdue_31_60),
+        overdue_61_plus: money(x.overdue_61_plus),
       },
-      topDebtors: [
-        { customer: 'Vaidya Health Suppliers LLP', totalDue: 170000, overdueDays: 45, creditLimit: 1200000 },
-        { customer: 'Dhanvantari Pharma Distributors', totalDue: 130000, overdueDays: 38, creditLimit: 750000 },
-        { customer: 'Shree Balaji Ayurvedic Traders', totalDue: 120000, overdueDays: 20, creditLimit: 1000000 },
-      ],
     };
   },
 });
@@ -186,20 +226,35 @@ AiToolRegistry.register({
 // 4. Production & Manufacturing Summary
 AiToolRegistry.register({
   name: 'get_production_summary',
-  description: 'Retrieve shop-floor work orders, batch yield rates, scrap percentages, and formulation status.',
+  description: 'Retrieve production orders by status, recent completions, output versus plan and rejected quantity.',
   requiredPermission: 'manufacturing.view',
   parameters: {},
-  execute: async (args, ctx) => {
+  execute: async (_args, ctx) => {
+    const r = await pool.query(
+      `SELECT COUNT(*)::int AS total,
+              COUNT(*) FILTER (WHERE status IN ('in_progress', 'released', 'started'))::int AS active,
+              COUNT(*) FILTER (WHERE status = 'completed' AND completed_at >= date_trunc('month', CURRENT_DATE))::int AS completed_this_month,
+              COALESCE(SUM(planned_quantity) FILTER (WHERE status = 'completed'), 0)::float AS planned_completed,
+              COALESCE(SUM(actual_output_quantity) FILTER (WHERE status = 'completed'), 0)::float AS actual_output,
+              COALESCE(SUM(actual_rejected_quantity) FILTER (WHERE status = 'completed'), 0)::float AS rejected
+         FROM production_orders WHERE organization_id = $1`,
+      [ctx.organizationId]
+    );
+    const x = r.rows[0];
+    if (num(x.total) === 0) return { dataAvailable: false, message: 'No production orders.' };
+    const recent = await pool.query(
+      `SELECT production_order_number AS order_no, formulation_name_snapshot AS product, status, qc_status,
+              production_batch_number AS batch_no, actual_output_quantity::float AS output, planned_quantity::float AS planned
+         FROM production_orders WHERE organization_id = $1 ORDER BY created_at DESC LIMIT 5`,
+      [ctx.organizationId]
+    );
     return {
-      averageYieldRate: '98.4%',
-      activeWorkOrders: 6,
-      completedBatchesThisMonth: 48,
-      scrapPercentage: '1.6%',
-      recentBatches: [
-        { batchNo: 'JY-KUM-2026-10A', product: 'Kumkumadi Oil', yield: '99.2%', qcVerdict: 'RELEASED' },
-        { batchNo: 'JY-BHR-2026-10B', product: 'Bhringraj Hair Oil', yield: '98.1%', qcVerdict: 'RELEASED' },
-        { batchNo: 'JY-NAL-2026-10C', product: 'Nalpamaradi Thailam', yield: '97.9%', qcVerdict: 'INSPECTION_PENDING' },
-      ],
+      dataAvailable: true,
+      activeProductionOrders: x.active,
+      completedThisMonth: x.completed_this_month,
+      yieldVsPlanPct: num(x.planned_completed) > 0 ? Math.round((num(x.actual_output) / num(x.planned_completed)) * 1000) / 10 : null,
+      rejectedQuantity: x.rejected,
+      recentOrders: recent.rows,
     };
   },
 });
@@ -207,17 +262,34 @@ AiToolRegistry.register({
 // 5. Marketing Summary
 AiToolRegistry.register({
   name: 'get_marketing_summary',
-  description: 'Retrieve paid marketing spend, impressions, blended CAC, and campaign ROAS across Meta and Google Ads.',
+  description: 'Retrieve paid media spend, impressions, clicks, conversions and ROAS from synced ad accounts.',
   requiredPermission: 'marketing.view',
-  parameters: {},
+  parameters: {
+    period: { type: 'string', description: 'Period such as 7d, 30d, or 90d', required: false },
+  },
   execute: async (args, ctx) => {
+    const days = periodDays(args.period);
+    const r = await pool.query(
+      `SELECT COALESCE(SUM(spend), 0) AS spend, COALESCE(SUM(impressions), 0)::float AS impressions,
+              COALESCE(SUM(clicks), 0)::float AS clicks, COALESCE(SUM(conversions), 0)::float AS conversions,
+              COALESCE(SUM(conversion_value), 0) AS conversion_value
+         FROM marketing_daily_insights
+        WHERE organization_id = $1 AND level = 'account' AND date >= CURRENT_DATE - ($2::int * INTERVAL '1 day')`,
+      [ctx.organizationId, days]
+    );
+    const x = r.rows[0];
+    if (num(x.spend) === 0 && num(x.impressions) === 0) {
+      return { period: `${days}d`, dataAvailable: false, message: 'No synced advertising data (connect an ad account and run a sync).' };
+    }
     return {
-      totalAdSpend: 245000,
-      blendedRoas: 4.38,
-      blendedCAC: 298,
-      metaAds: { spend: 145000, roas: 4.62, attributedRevenue: 669900 },
-      googleAds: { spend: 100000, roas: 4.14, attributedRevenue: 414000 },
-      topCampaign: 'Meta Advantage+ Festive Radiant Glow Catalog',
+      period: `${days}d`,
+      dataAvailable: true,
+      totalAdSpend: money(x.spend),
+      impressions: x.impressions,
+      clicks: x.clicks,
+      conversions: x.conversions,
+      attributedRevenue: money(x.conversion_value),
+      roas: num(x.spend) > 0 ? Math.round((num(x.conversion_value) / num(x.spend)) * 100) / 100 : null,
     };
   },
 });
@@ -225,19 +297,34 @@ AiToolRegistry.register({
 // 6. Marketplace Summary
 AiToolRegistry.register({
   name: 'get_marketplace_summary',
-  description: 'Retrieve consolidated multi-marketplace GMV, fees, returns, and net yields across Amazon, Flipkart, and Myntra.',
+  description: 'Retrieve marketplace order counts and order value by channel (Amazon, Flipkart, Myntra).',
   requiredPermission: 'commerce.view',
-  parameters: {},
+  parameters: {
+    period: { type: 'string', description: 'Period such as 7d, 30d, or 90d', required: false },
+  },
   execute: async (args, ctx) => {
+    const days = periodDays(args.period);
+    const r = await pool.query(
+      `SELECT provider_key, COUNT(*)::int AS orders, COALESCE(SUM(order_total), 0) AS gmv,
+              COUNT(*) FILTER (WHERE LOWER(order_status) LIKE '%cancel%' OR LOWER(order_status) LIKE '%return%')::int AS cancelled_or_returned
+         FROM marketplace_orders
+        WHERE organization_id = $1 AND purchase_date >= CURRENT_DATE - ($2::int * INTERVAL '1 day')
+        GROUP BY provider_key ORDER BY gmv DESC`,
+      [ctx.organizationId, days]
+    );
+    if (r.rows.length === 0) return { period: `${days}d`, dataAvailable: false, message: 'No marketplace orders synced.' };
+    const total = r.rows.reduce((a, row) => a + num(row.gmv), 0);
     return {
-      grossMarketplaceGMV: 1636900,
-      netRealizedPayout: 1328570,
-      totalOrders: 1372,
-      platformBreakdown: {
-        amazon: { gmv: 642000, orders: 520, returnRate: '4.2%', tier: 'Prime FBA' },
-        flipkart: { gmv: 512000, orders: 440, returnRate: '4.1%', tier: 'Gold F-Assured' },
-        myntra: { gmv: 482900, orders: 412, returnRate: '4.8%', tier: 'Tier 1 Fashion Partner' },
-      },
+      period: `${days}d`,
+      dataAvailable: true,
+      grossMarketplaceOrderValue: money(total),
+      totalOrders: r.rows.reduce((a, row) => a + num(row.orders), 0),
+      channels: r.rows.map((row) => ({
+        channel: row.provider_key,
+        orders: row.orders,
+        orderValue: money(row.gmv),
+        cancelledOrReturned: row.cancelled_or_returned,
+      })),
     };
   },
 });
@@ -245,17 +332,35 @@ AiToolRegistry.register({
 // 7. Field Sales Summary
 AiToolRegistry.register({
   name: 'get_field_sales_summary',
-  description: 'Retrieve on-ground field sales performance, beat attendance, strike rate, and retailer visits.',
+  description: 'Retrieve field-sales visit activity, orders and collections booked on visits for a recent period.',
   requiredPermission: 'field_sales.view',
-  parameters: {},
+  parameters: {
+    period: { type: 'string', description: 'Period such as 7d, 30d, or 90d', required: false },
+  },
   execute: async (args, ctx) => {
+    const days = periodDays(args.period);
+    const r = await pool.query(
+      `SELECT COUNT(*)::int AS visits,
+              COUNT(*) FILTER (WHERE status = 'completed')::int AS completed,
+              COUNT(DISTINCT salesperson_id)::int AS active_reps,
+              COUNT(*) FILTER (WHERE order_taken_id IS NOT NULL)::int AS visits_with_orders,
+              COALESCE(SUM(order_amount), 0) AS order_amount,
+              COALESCE(SUM(collection_amount), 0) AS collection_amount
+         FROM field_sales_visits
+        WHERE organization_id = $1 AND COALESCE(actual_date, planned_date) >= CURRENT_DATE - ($2::int * INTERVAL '1 day')`,
+      [ctx.organizationId, days]
+    );
+    const x = r.rows[0];
+    if (num(x.visits) === 0) return { period: `${days}d`, dataAvailable: false, message: 'No field visits recorded.' };
     return {
-      activeReps: 16,
-      visitsCompleted: 1240,
-      strikeRate: '74.2%',
-      ordersBooked: 920,
-      collectionsBooked: 640000,
-      topTerritory: 'Bangalore Metro & South Karnataka',
+      period: `${days}d`,
+      dataAvailable: true,
+      activeReps: x.active_reps,
+      visitsPlanned: x.visits,
+      visitsCompleted: x.completed,
+      strikeRatePct: num(x.completed) > 0 ? Math.round((num(x.visits_with_orders) / num(x.completed)) * 1000) / 10 : null,
+      ordersBookedValue: money(x.order_amount),
+      collectionsBookedValue: money(x.collection_amount),
     };
   },
 });

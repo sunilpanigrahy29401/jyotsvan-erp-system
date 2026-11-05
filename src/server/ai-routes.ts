@@ -9,13 +9,13 @@ import { AiActionsService } from './ai-actions-service.ts';
 
 export const aiRouter = Router();
 
-const DEFAULT_ORG_ID = '00000000-0000-0000-0000-000000000001';
-
+// Identity and permissions come only from the verified session (req.auth, set by the authenticate middleware).
+// There are no defaults: a request without a session never reaches these handlers.
 const getContext = (req: any) => ({
-  organizationId: (req.headers['x-organization-id'] || req.user?.organization_id || DEFAULT_ORG_ID) as string,
-  userId: (req.user?.id || 'usr_executive_admin') as string,
-  userRole: (req.user?.role || 'super_admin') as string,
-  userPermissions: (req.user?.permissions || ['*']) as string[],
+  organizationId: req.auth.organizationId as string,
+  userId: req.auth.userId as string,
+  userRole: (req.auth.roles?.[0]?.slug || 'user') as string,
+  userPermissions: (req.auth.isSuperAdmin ? ['*:*'] : Array.from(req.auth.permissions)) as string[],
 });
 
 /**

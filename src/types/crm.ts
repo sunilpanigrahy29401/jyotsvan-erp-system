@@ -356,6 +356,10 @@ export interface CrmIntegrationConfig {
   error_message?: string | null;
   config_summary: Record<string, unknown>;
   created_at: string;
+  /** Explanation of the current status (server-computed). */
+  note?: string | null;
+  /** Inbound path for push-based providers; null for providers that need an outbound connection. */
+  endpoint?: string | null;
 }
 
 export interface CrmDashboardMetrics {

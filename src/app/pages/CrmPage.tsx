@@ -5,7 +5,12 @@ import {
   Building2, 
   TrendingUp, 
   CheckSquare, 
-  Share2 
+  Share2,
+  FileText,
+  LifeBuoy,
+  Megaphone,
+  BarChart3,
+  Settings2,
 } from 'lucide-react';
 import { CrmOverview } from './crm/CrmOverview';
 import { LeadManagement } from './crm/LeadManagement';
@@ -13,6 +18,11 @@ import { AccountsAndContacts } from './crm/AccountsAndContacts';
 import { DealsPipeline } from './crm/DealsPipeline';
 import { ActivitiesAndEngagement } from './crm/ActivitiesAndEngagement';
 import { LeadCaptureIntegrations } from './crm/LeadCaptureIntegrations';
+import { QuotesPage } from './crm/QuotesPage';
+import { SupportPage } from './crm/SupportPage';
+import { MarketingPage } from './crm/MarketingPage';
+import { ReportsPage } from './crm/ReportsPage';
+import { SettingsPage } from './crm/SettingsPage';
 
 interface CrmPageProps {
   currentPath: string;
@@ -40,6 +50,16 @@ export const CrmPage: React.FC<CrmPageProps> = ({ currentPath, onNavigate }) => 
     activeSubTab = 'activities';
   } else if (currentPath.includes('/crm/integrations')) {
     activeSubTab = 'integrations';
+  } else if (currentPath.includes('/crm/quotes')) {
+    activeSubTab = 'quotes';
+  } else if (currentPath.includes('/crm/support')) {
+    activeSubTab = 'support';
+  } else if (currentPath.includes('/crm/marketing')) {
+    activeSubTab = 'marketing';
+  } else if (currentPath.includes('/crm/reports')) {
+    activeSubTab = 'reports';
+  } else if (currentPath.includes('/crm/settings')) {
+    activeSubTab = 'settings';
   }
 
   const tabs = [
@@ -48,7 +68,12 @@ export const CrmPage: React.FC<CrmPageProps> = ({ currentPath, onNavigate }) => 
     { id: 'accounts', label: 'Accounts & Contacts', icon: Building2, path: '/crm/accounts' },
     { id: 'deals', label: 'Deals & Pipeline', icon: TrendingUp, path: '/crm/deals' },
     { id: 'activities', label: 'Activities & Engagement', icon: CheckSquare, path: '/crm/activities' },
+    { id: 'quotes', label: 'Quotations', icon: FileText, path: '/crm/quotes' },
+    { id: 'support', label: 'Helpdesk', icon: LifeBuoy, path: '/crm/support' },
+    { id: 'marketing', label: 'Marketing', icon: Megaphone, path: '/crm/marketing' },
+    { id: 'reports', label: 'Reports', icon: BarChart3, path: '/crm/reports' },
     { id: 'integrations', label: 'Lead Capture & APIs', icon: Share2, path: '/crm/integrations' },
+    { id: 'settings', label: 'Settings', icon: Settings2, path: '/crm/settings' },
   ];
 
   return (
@@ -83,12 +108,17 @@ export const CrmPage: React.FC<CrmPageProps> = ({ currentPath, onNavigate }) => 
 
       {/* Main CRM Body Container */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
-        {activeSubTab === 'overview' && <CrmOverview onNavigate={onNavigate} />}
-        {activeSubTab === 'leads' && <LeadManagement onNavigate={onNavigate} />}
-        {activeSubTab === 'accounts' && <AccountsAndContacts onNavigate={onNavigate} />}
+        {activeSubTab === 'overview' && <CrmOverview onNavigateTab={(tab) => onNavigate(`/crm/${tab}`)} onOpenCreateLead={() => onNavigate('/crm/leads')} />}
+        {activeSubTab === 'leads' && <LeadManagement />}
+        {activeSubTab === 'accounts' && <AccountsAndContacts />}
         {activeSubTab === 'deals' && <DealsPipeline onNavigate={onNavigate} />}
         {activeSubTab === 'activities' && <ActivitiesAndEngagement onNavigate={onNavigate} />}
         {activeSubTab === 'integrations' && <LeadCaptureIntegrations onNavigate={onNavigate} />}
+        {activeSubTab === 'quotes' && <QuotesPage />}
+        {activeSubTab === 'support' && <SupportPage />}
+        {activeSubTab === 'marketing' && <MarketingPage />}
+        {activeSubTab === 'reports' && <ReportsPage />}
+        {activeSubTab === 'settings' && <SettingsPage />}
       </div>
     </div>
   );

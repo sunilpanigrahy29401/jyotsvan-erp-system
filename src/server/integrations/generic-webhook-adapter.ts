@@ -8,6 +8,7 @@ import type {
   HealthCheckResult,
 } from './adapter-interface.ts';
 import type { ConnectionTestResult, ProviderCapabilities, WebhookIngestResult } from '../../types/integrations.ts';
+import { allowUnsignedWebhooks, UNSIGNED_REJECTED } from '../core/webhook-guard.ts';
 
 export class GenericWebhookAdapter implements IntegrationProviderAdapter {
   readonly providerKey = 'generic_webhook';
@@ -128,6 +129,9 @@ export class GenericWebhookAdapter implements IntegrationProviderAdapter {
           message: 'HMAC signature verification failed. The payload signature does not match.',
         };
       }
+    } else if (!allowUnsignedWebhooks()) {
+      // No signing secret configured: fail closed instead of accepting arbitrary public POSTs.
+      return { ...UNSIGNED_REJECTED };
     }
 
     return {

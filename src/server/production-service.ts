@@ -545,7 +545,7 @@ export class ProductionService {
         yu.short_code as expected_yield_unit_code,
         loc.name as target_location_name,
         pp.plan_number as production_plan_number,
-        qc.template_name as qc_template_name,
+        qc.name as qc_template_name,
         qci.inspection_number as qc_inspection_number
       FROM production_orders po
       JOIN skus s ON s.id = po.finished_sku_id
@@ -609,7 +609,7 @@ export class ProductionService {
         yu.short_code as expected_yield_unit_code,
         loc.name as target_location_name,
         pp.plan_number as production_plan_number,
-        qc.template_name as qc_template_name,
+        qc.name as qc_template_name,
         qci.inspection_number as qc_inspection_number
        FROM production_orders po
        JOIN skus s ON s.id = po.finished_sku_id

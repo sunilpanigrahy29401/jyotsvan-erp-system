@@ -15,7 +15,7 @@ function getContext(req: Request) {
   const organizationId =
     (req.headers['x-organization-id'] as string) ||
     (req.query.organizationId as string) ||
-    'org-jyotsvan-core';
+    'org-jyotsvan-corp';
   const connectionId =
     (req.headers['x-connection-id'] as string) ||
     (req.query.connectionId as string) ||
@@ -439,22 +439,30 @@ metaRoutes.post('/oauth/start', async (req: Request, res: Response) => {
  * Handles OAuth Redirect Callback
  */
 metaRoutes.get('/oauth/callback', async (req: Request, res: Response) => {
-  const code = req.query.code as string;
-  const state = req.query.state as string;
-  const error = req.query.error_description || req.query.error;
+  // Everything below is attacker-controllable query input on a PUBLIC page: never interpolate it raw.
+  const code = String(req.query.code ?? '').slice(0, 2048);
+  const state = String(req.query.state ?? '').slice(0, 512);
+  const rawError = req.query.error_description || req.query.error;
+  const error = rawError === undefined ? '' : String(rawError).slice(0, 500);
+  const escapeHtml = (s: string) =>
+    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  res.setHeader('Content-Security-Policy', "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'");
+  res.setHeader('X-Content-Type-Options', 'nosniff');
 
   if (error) {
     return res.send(`
       <html>
         <body style="font-family: sans-serif; padding: 40px; text-align: center;">
           <h2 style="color: #e11d48;">Meta Authorization Failed</h2>
-          <p>${error}</p>
+          <p>${escapeHtml(error)}</p>
           <button onclick="window.close()" style="padding: 10px 20px; background: #0f172a; color: white; border: none; border-radius: 6px; cursor: pointer;">Close Window</button>
         </body>
       </html>
     `);
   }
 
+  // JSON-encode and neutralise "<" so the value can never close the script block.
+  const payload = JSON.stringify({ type: 'META_OAUTH_SUCCESS', code, state }).replace(/</g, '\\u003c');
   return res.send(`
     <html>
       <body style="font-family: sans-serif; padding: 40px; text-align: center;">
@@ -462,7 +470,7 @@ metaRoutes.get('/oauth/callback', async (req: Request, res: Response) => {
         <p>Your Meta Ads account has been connected. You may close this window and return to Jyotsvan.</p>
         <script>
           if (window.opener) {
-            window.opener.postMessage({ type: 'META_OAUTH_SUCCESS', code: '${code}', state: '${state}' }, '*');
+            window.opener.postMessage(${payload}, window.location.origin);
             setTimeout(function() { window.close(); }, 1500);
           }
         </script>

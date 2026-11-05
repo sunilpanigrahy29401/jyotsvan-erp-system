@@ -93,7 +93,7 @@ export class DistributorService {
         (SELECT COUNT(*) FROM distributor_assortments da WHERE da.distributor_id = d.id AND da.status = 'active') as active_skus_count,
         (SELECT COALESCE(SUM(ds.quantity_on_hand), 0) FROM distributor_stock ds WHERE ds.distributor_id = d.id) as stock_units_on_hand,
         (SELECT COALESCE(SUM(ds.quantity_on_hand * ds.unit_cost), 0) FROM distributor_stock ds WHERE ds.distributor_id = d.id) as stock_valuation,
-        (SELECT COALESCE(SUM(do.total_estimated_amount), 0) FROM distributor_orders do WHERE do.distributor_id = d.id AND do.status IN ('submitted', 'approved', 'processing')) as current_outstanding_amount
+        (SELECT COALESCE(SUM(dord.total_estimated_amount), 0) FROM distributor_orders dord WHERE dord.distributor_id = d.id AND dord.status IN ('submitted', 'approved', 'processing')) as current_outstanding_amount
       FROM distributors d
       LEFT JOIN territories t ON t.id = d.territory_id
       WHERE ${whereClause}
@@ -123,7 +123,7 @@ export class DistributorService {
         (SELECT COUNT(*) FROM distributor_assortments da WHERE da.distributor_id = d.id AND da.status = 'active') as active_skus_count,
         (SELECT COALESCE(SUM(ds.quantity_on_hand), 0) FROM distributor_stock ds WHERE ds.distributor_id = d.id) as stock_units_on_hand,
         (SELECT COALESCE(SUM(ds.quantity_on_hand * ds.unit_cost), 0) FROM distributor_stock ds WHERE ds.distributor_id = d.id) as stock_valuation,
-        (SELECT COALESCE(SUM(do.total_estimated_amount), 0) FROM distributor_orders do WHERE do.distributor_id = d.id AND do.status IN ('submitted', 'approved', 'processing')) as current_outstanding_amount
+        (SELECT COALESCE(SUM(dord.total_estimated_amount), 0) FROM distributor_orders dord WHERE dord.distributor_id = d.id AND dord.status IN ('submitted', 'approved', 'processing')) as current_outstanding_amount
       FROM distributors d
       LEFT JOIN territories t ON t.id = d.territory_id
       WHERE d.organization_id = $1 AND d.id = $2
@@ -796,7 +796,7 @@ export class DistributorService {
         da.*,
         s.sku_code,
         s.name as sku_name,
-        s.category,
+        (SELECT cat.name FROM products pr JOIN categories cat ON cat.id = pr.category_id WHERE pr.id = s.product_id) AS category,
         s.mrp as standard_mrp,
         s.cost_price as standard_cost,
         u.name as unit_name,

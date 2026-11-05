@@ -17,17 +17,14 @@ const DEFAULT_API_URL = 'https://858f4w8c.us-east.insforge.app';
 
 const rawProjectId =
   (import.meta.env.VITE_INSFORGE_PROJECT_ID as string | undefined) ||
-  (import.meta.env.INSFORGE_PROJECT_ID as string | undefined) ||
   DEFAULT_PROJECT_ID;
 
 const rawApiUrl =
   (import.meta.env.VITE_INSFORGE_API_URL as string | undefined) ||
-  (import.meta.env.INSFORGE_API_URL as string | undefined) ||
   DEFAULT_API_URL;
 
 const rawAnonKey =
   (import.meta.env.VITE_INSFORGE_ANON_KEY as string | undefined) ||
-  (import.meta.env.INSFORGE_ANON_KEY as string | undefined) ||
   '';
 
 export const ENV: EnvConfig = {
@@ -35,6 +32,6 @@ export const ENV: EnvConfig = {
   apiUrl: rawApiUrl,
   anonKey: rawAnonKey,
   isInsforgeConfigured: Boolean(rawApiUrl),
-  appUrl: (import.meta.env.APP_URL as string | undefined) || (typeof window !== 'undefined' ? window.location.origin : ''),
+  appUrl: (import.meta.env.VITE_APP_URL as string | undefined) || (typeof window !== 'undefined' ? window.location.origin : ''),
   isProduction: import.meta.env.PROD,
 };

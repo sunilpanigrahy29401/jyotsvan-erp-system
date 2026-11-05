@@ -148,6 +148,13 @@ export async function migrateMyntraIntegration(): Promise<void> {
       ]
     );
 
+    if (!connRes.rows[0]) {
+      // The demo-connection insert targets a column set that the canonical integration_connections table does not have.
+      // The provider registration above is the only part production needs; skip the demo catalogue/orders seed.
+      console.warn('[Phase 33] Demo connection seed skipped (schema mismatch). Provider registration kept.');
+      await client.query('COMMIT');
+      return;
+    }
     const connectionId = connRes.rows[0].id;
 
     // 4. Seed Myntra Catalog Listings (Style IDs & Personal Care/Beauty Products)

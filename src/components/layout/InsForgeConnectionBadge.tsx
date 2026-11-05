@@ -18,21 +18,24 @@ export function InsForgeConnectionBadge() {
   const fetchStatus = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/db/status');
+      // Admin-only diagnostics endpoint; non-admins simply see that details are unavailable.
+      const res = await fetch('/api/admin/system-status');
       if (res.ok) {
         const data = await res.json();
-        setStatus(data);
+        setStatus({
+          connected: data.database === 'connected',
+          database: `PostgreSQL (${data.latencyMs} ms)`,
+          tables: [],
+          counts: {},
+          ...(data.pendingMigrations?.length ? { error: `${data.pendingMigrations.length} pending migration(s)` } : {}),
+        });
+      } else if (res.status === 403) {
+        setStatus({ connected: true, database: 'Details restricted to administrators', tables: [], counts: {} });
       } else {
         setStatus({ connected: false, error: `API status: ${res.status}` });
       }
     } catch {
-      // Fallback display
-      setStatus({
-        connected: true,
-        database: 'insforge',
-        tables: ['organizations', 'branches', 'departments', 'users', 'roles', 'permissions', 'warehouses', 'products', 'customers', 'orders'],
-        counts: { users: 8, products: 4, branches: 3, customers: 3, warehouses: 3, organizations: 1, roles: 7, permissions: 12 },
-      });
+      setStatus({ connected: false, error: 'Backend unreachable' });
     } finally {
       setLoading(false);
     }

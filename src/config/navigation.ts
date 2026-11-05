@@ -88,7 +88,7 @@ export const NAVIGATION_ITEMS: NavItem[] = [
     path: '/crm',
     iconName: 'UserCheck',
     plannedPhase: 'Phase 21b Live',
-    requiredPermission: 'users.view',
+    requiredPermission: 'crm.view',
     description: 'Enterprise commercial relationship management, omnichannel lead ingestion, B2B deal pipelines, and customer 360.',
     children: [
       {
@@ -96,7 +96,7 @@ export const NAVIGATION_ITEMS: NavItem[] = [
         title: 'Command Center',
         path: '/crm/overview',
         plannedPhase: 'Phase 21b Live',
-        requiredPermission: 'users.view',
+        requiredPermission: 'crm.view',
         description: 'CRM executive cockpit, pipeline velocity, lead funnel conversion, and weighted revenue forecast.',
       },
       {
@@ -104,7 +104,7 @@ export const NAVIGATION_ITEMS: NavItem[] = [
         title: 'Leads',
         path: '/crm/leads',
         plannedPhase: 'Phase 21b Live',
-        requiredPermission: 'users.view',
+        requiredPermission: 'crm.view',
         description: 'Omnichannel lead directory, qualification scoring, round-robin assignment, and transaction-safe conversion.',
       },
       {
@@ -112,7 +112,7 @@ export const NAVIGATION_ITEMS: NavItem[] = [
         title: 'Accounts & Contacts',
         path: '/crm/accounts',
         plannedPhase: 'Phase 21b Live',
-        requiredPermission: 'users.view',
+        requiredPermission: 'crm.view',
         description: 'B2B enterprise accounts, contact directory, customer 360 dossiers, and operational entity linking.',
       },
       {
@@ -120,7 +120,7 @@ export const NAVIGATION_ITEMS: NavItem[] = [
         title: 'Deals & Pipeline',
         path: '/crm/deals',
         plannedPhase: 'Phase 21b Live',
-        requiredPermission: 'users.view',
+        requiredPermission: 'crm.view',
         description: 'Interactive visual deal Kanban, customizable pipeline stages, win/loss analytics, and Sales handoff.',
       },
       {
@@ -128,15 +128,55 @@ export const NAVIGATION_ITEMS: NavItem[] = [
         title: 'Activities & Engagement',
         path: '/crm/activities',
         plannedPhase: 'Phase 21b Live',
-        requiredPermission: 'users.view',
+        requiredPermission: 'crm.view',
         description: 'Unified customer interaction timeline, phone call logs, scheduled meetings, tasks, and follow-up reminders.',
+      },
+      {
+        id: 'crm-quotes',
+        title: 'Quotations',
+        path: '/crm/quotes',
+        plannedPhase: 'Phase 21b Live',
+        requiredPermission: 'crm.view',
+        description: 'Quotation builder tied to the product master with GST, discounts and a send / accept / reject lifecycle.',
+      },
+      {
+        id: 'crm-support',
+        title: 'Helpdesk',
+        path: '/crm/support',
+        plannedPhase: 'Phase 21b Live',
+        requiredPermission: 'crm.view',
+        description: 'Support tickets with SLA timers, escalation and CSAT, plus the knowledge base.',
+      },
+      {
+        id: 'crm-marketing',
+        title: 'Marketing',
+        path: '/crm/marketing',
+        plannedPhase: 'Phase 21b Live',
+        requiredPermission: 'crm.view',
+        description: 'Consent-aware audiences, templates, campaigns and drip sequences with unsubscribe handling.',
+      },
+      {
+        id: 'crm-reports',
+        title: 'Reports',
+        path: '/crm/reports',
+        plannedPhase: 'Phase 21b Live',
+        requiredPermission: 'crm.view',
+        description: 'Lead funnel, revenue forecast, win/loss, source performance and team scoreboard.',
+      },
+      {
+        id: 'crm-settings',
+        title: 'CRM Settings',
+        path: '/crm/settings',
+        plannedPhase: 'Phase 21b Live',
+        requiredPermission: 'crm.edit',
+        description: 'Pipelines, lead scoring, auto-assignment, SLAs, custom fields and automation rules.',
       },
       {
         id: 'crm-integrations',
         title: 'Lead Capture & Integrations',
         path: '/crm/integrations',
         plannedPhase: 'Phase 21b Live',
-        requiredPermission: 'users.view',
+        requiredPermission: 'crm.view',
         description: 'Public webform intake endpoint, IndiaMART connector, Meta/Google lead webhooks, and Shopify sync.',
       },
     ],
@@ -424,7 +464,7 @@ export const NAVIGATION_ITEMS: NavItem[] = [
     path: '/people',
     iconName: 'Users',
     plannedPhase: 'Phase 21 Live',
-    requiredPermission: 'users.view',
+    requiredPermission: 'employees.view',
     description: 'Human capital management, employee directory, shift rosters, attendance, leave, tasks, targets, and organizational hierarchy.',
     children: [
       {
@@ -432,7 +472,7 @@ export const NAVIGATION_ITEMS: NavItem[] = [
         title: 'HR Overview',
         path: '/people/overview',
         plannedPhase: 'Phase 21 Live',
-        requiredPermission: 'users.view',
+        requiredPermission: 'employees.view',
         description: 'Executive HR command center, headcount analytics, daily attendance muster snapshot, and quick actions.',
       },
       {
@@ -440,7 +480,7 @@ export const NAVIGATION_ITEMS: NavItem[] = [
         title: 'Employees & Org',
         path: '/people/employees',
         plannedPhase: 'Phase 21 Live',
-        requiredPermission: 'users.view',
+        requiredPermission: 'employees.view',
         description: 'Staff directory, 360 employee profile, organizational tree, designation matrices, and department assignments.',
       },
       {
@@ -448,7 +488,7 @@ export const NAVIGATION_ITEMS: NavItem[] = [
         title: 'Time & Attendance',
         path: '/people/attendance',
         plannedPhase: 'Phase 21 Live',
-        requiredPermission: 'users.view',
+        requiredPermission: 'employees.view',
         description: 'Daily attendance punch register, hours tracking, and regularized attendance correction workflow.',
       },
       {
@@ -456,7 +496,7 @@ export const NAVIGATION_ITEMS: NavItem[] = [
         title: 'Leave Management',
         path: '/people/leave',
         plannedPhase: 'Phase 21 Live',
-        requiredPermission: 'users.view',
+        requiredPermission: 'employees.view',
         description: 'Leave balance ledger, leave request application, supervisory approval, and auto-attendance sync.',
       },
       {
@@ -464,7 +504,7 @@ export const NAVIGATION_ITEMS: NavItem[] = [
         title: 'Payroll & Compensation',
         path: '/people/payroll',
         plannedPhase: 'Phase 21 Live',
-        requiredPermission: 'users.view',
+        requiredPermission: 'payroll.view',
         description: 'Monthly payroll runs, statutory deductions (PF, ESIC, PT, TDS), payslips register, and Finance JV handoff.',
       },
       {
@@ -472,7 +512,7 @@ export const NAVIGATION_ITEMS: NavItem[] = [
         title: 'Shifts & Rosters',
         path: '/people/shifts',
         plannedPhase: 'Phase 21 Live',
-        requiredPermission: 'users.view',
+        requiredPermission: 'employees.view',
         description: 'Work shift definitions, grace periods, rotational assignments, and company holiday calendar.',
       },
       {
@@ -480,7 +520,7 @@ export const NAVIGATION_ITEMS: NavItem[] = [
         title: 'Performance & Reviews',
         path: '/people/performance',
         plannedPhase: 'Phase 21 Live',
-        requiredPermission: 'users.view',
+        requiredPermission: 'employees.view',
         description: 'Employee KPI target tracking, quarterly appraisal reviews, performance ratings, and feedback.',
       },
       {
@@ -488,7 +528,7 @@ export const NAVIGATION_ITEMS: NavItem[] = [
         title: 'Workforce Tasks',
         path: '/people/tasks',
         plannedPhase: 'Phase 21 Live',
-        requiredPermission: 'users.view',
+        requiredPermission: 'employees.view',
         description: 'Operational workforce task assignments, cross-department checklists, and resolution tracking.',
       },
       {
@@ -496,7 +536,7 @@ export const NAVIGATION_ITEMS: NavItem[] = [
         title: 'Employee Self-Service',
         path: '/people/ess',
         plannedPhase: 'Phase 21 Live',
-        requiredPermission: 'users.view',
+        requiredPermission: 'employees.view',
         description: 'Employee self-service desk for personal attendance punch, leave applications, personal payslips, and notices.',
       },
       {
@@ -504,7 +544,7 @@ export const NAVIGATION_ITEMS: NavItem[] = [
         title: 'HR Workflows & Exits',
         path: '/people/requests',
         plannedPhase: 'Phase 21 Live',
-        requiredPermission: 'users.view',
+        requiredPermission: 'employees.view',
         description: 'Internal employee service requests, resignation offboarding, department clearance workflows, and company broadcasts.',
       },
     ],

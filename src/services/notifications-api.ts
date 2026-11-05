@@ -216,44 +216,65 @@ export class NotificationsAPI {
   }
 
   /**
-   * Subscribe to Live SSE Stream
+   * Subscribe to the live notification stream (Server-Sent Events over fetch).
+   * EventSource cannot send an Authorization header, so the stream is read with fetch(); the global auth wrapper
+   * attaches the access token. Identity (tenant, user) is taken from the session on the server, not from the URL.
    */
   public static subscribeToRealtime(
     onNotification: (data: any) => void,
     onConnected?: () => void
   ): () => void {
-    const orgId = localStorage.getItem('jyotsvan_active_org_id') || 'org-jyotsvan-corp';
-    const userId = localStorage.getItem('jyotsvan_active_user_id') || 'usr-super-admin';
-    const sseUrl = `/api/notifications/stream?organizationId=${encodeURIComponent(orgId)}&userId=${encodeURIComponent(userId)}`;
+    const controller = new AbortController();
+    let stopped = false;
 
-    let eventSource: EventSource | null = null;
-    try {
-      eventSource = new EventSource(sseUrl);
-
-      eventSource.onopen = () => {
+    const connect = async (attempt: number): Promise<void> => {
+      if (stopped) return;
+      try {
+        const res = await fetch('/api/notifications/stream', {
+          headers: { Accept: 'text/event-stream' },
+          signal: controller.signal,
+        });
+        if (!res.ok || !res.body) throw new Error(`stream ${res.status}`);
         onConnected?.();
-      };
-
-      eventSource.onmessage = (e) => {
-        try {
-          const parsed = JSON.parse(e.data);
-          onNotification(parsed);
-        } catch (err) {
-          // ignore heartbeat
+        attempt = 0;
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          let idx: number;
+          while ((idx = buffer.indexOf('\n\n')) >= 0) {
+            const frame = buffer.slice(0, idx);
+            buffer = buffer.slice(idx + 2);
+            const data = frame
+              .split('\n')
+              .filter((l) => l.startsWith('data: '))
+              .map((l) => l.slice(6))
+              .join('\n');
+            if (!data) continue; // heartbeat/comment
+            try {
+              onNotification(JSON.parse(data));
+            } catch {
+              /* ignore malformed frame */
+            }
+          }
         }
-      };
-
-      eventSource.onerror = (err) => {
-        // SSE handles reconnection automatically
-      };
-    } catch (err) {
-      console.warn('[NotificationsAPI] SSE connection failed:', err);
-    }
+      } catch (err) {
+        if (stopped) return;
+        console.warn('[NotificationsAPI] stream interrupted, retrying:', err instanceof Error ? err.message : err);
+      }
+      if (!stopped) {
+        const delay = Math.min(30_000, 1000 * 2 ** Math.min(attempt, 5));
+        setTimeout(() => void connect(attempt + 1), delay);
+      }
+    };
+    void connect(0);
 
     return () => {
-      if (eventSource) {
-        eventSource.close();
-      }
+      stopped = true;
+      controller.abort();
     };
   }
 }

@@ -262,7 +262,7 @@ export async function runWarehouseManagementMigration() {
             await client.query(
               `INSERT INTO role_permissions (id, role_id, permission_id, created_at)
                VALUES ($1, $2, $3, NOW())
-               ON CONFLICT (id) DO NOTHING`,
+               ON CONFLICT DO NOTHING`,
               [rpId, rId, actualPermId]
             );
           }
@@ -522,7 +522,7 @@ export async function runWarehouseManagementMigration() {
         `INSERT INTO warehouse_transfer_items (
            id, transfer_id, sku_id, quantity, received_quantity, status, created_at
          ) VALUES ('trf-item-01-a', $1, $2, 25, 25, 'received', NOW() - INTERVAL '3 days')
-         ON CONFLICT (id) DO NOTHING`,
+         ON CONFLICT DO NOTHING`,
         [trfCompletedId, sku1]
       );
 
@@ -550,7 +550,7 @@ export async function runWarehouseManagementMigration() {
         `INSERT INTO warehouse_transfer_items (
            id, transfer_id, sku_id, quantity, received_quantity, status, created_at
          ) VALUES ('trf-item-02-a', $1, $2, 15, 0, 'dispatched', NOW() - INTERVAL '1 day')
-         ON CONFLICT (id) DO NOTHING`,
+         ON CONFLICT DO NOTHING`,
         [trfTransitId, sku2]
       );
 
@@ -572,7 +572,7 @@ export async function runWarehouseManagementMigration() {
         `INSERT INTO warehouse_transfer_items (
            id, transfer_id, sku_id, quantity, received_quantity, status, created_at
          ) VALUES ('trf-item-03-a', $1, $2, 10, 0, 'pending', NOW() - INTERVAL '4 hours')
-         ON CONFLICT (id) DO NOTHING`,
+         ON CONFLICT DO NOTHING`,
         [trfReqId, sku1]
       );
     }
@@ -611,7 +611,7 @@ export async function runWarehouseManagementMigration() {
              id, session_id, sku_id, location_id, system_quantity, counted_quantity,
              variance_quantity, status, notes, created_at, updated_at
            ) VALUES ($1, $2, $3, 'loc-c-bin-a1-01', $4, $5, $6, $7, $8, NOW() - INTERVAL '1 day', NOW())
-           ON CONFLICT (id) DO NOTHING`,
+           ON CONFLICT DO NOTHING`,
           [
             `cnt-item-${countId}-${sku.id}`,
             countId,

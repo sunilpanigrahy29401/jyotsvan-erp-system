@@ -6,6 +6,7 @@ import {
   Building2, Users, Search, Plus, Filter, Link as LinkIcon, Phone, Mail, 
   MapPin, ShieldCheck, ChevronRight, X, RefreshCw, Briefcase, ExternalLink, AlertCircle
 } from 'lucide-react';
+import { Customer360 } from './Customer360.tsx';
 import { CrmApi } from '../../../services/crmApi.ts';
 import type { CrmAccount, CrmContact, CommercialRelationshipType } from '../../../types/crm.ts';
 
@@ -354,102 +355,9 @@ export function AccountsAndContacts() {
         </div>
       )}
 
-      {/* ACCOUNT 360 DRAWER */}
+      {/* CUSTOMER 360 */}
       {selectedAccount && (
-        <div className="fixed inset-0 z-50 overflow-hidden bg-slate-900/40 backdrop-blur-xs flex justify-end">
-          <div className="w-full max-w-lg bg-white h-full shadow-2xl flex flex-col justify-between overflow-y-auto animate-in slide-in-from-right duration-200">
-            <div className="p-5 border-b border-slate-200 flex items-center justify-between">
-              <div>
-                <h3 className="text-base font-bold text-slate-900">{selectedAccount.name}</h3>
-                <div className="text-xs text-slate-500 font-mono mt-0.5">{selectedAccount.account_number} • {selectedAccount.relationship_type.replace('_', ' ')}</div>
-              </div>
-              <button onClick={() => setSelectedAccount(null)} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-5 space-y-5 flex-1">
-              {/* Linked Operational Record Banner */}
-              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl space-y-1 text-xs">
-                <div className="font-bold text-emerald-900 flex items-center gap-1.5">
-                  <ShieldCheck className="w-4 h-4 text-emerald-700" />
-                  <span>Master Operational Integrity</span>
-                </div>
-                <p className="text-[11px] text-emerald-800">
-                  {selectedAccount.linked_entity_type 
-                    ? `Linked to master ${selectedAccount.linked_entity_type} record. Operational credit limits and sales order history are harmonized without duplicate entities.`
-                    : 'This CRM account is currently standalone. It will seamlessly link to the customer master upon Won deal sales handoff.'}
-                </p>
-              </div>
-
-              {/* Coordinates */}
-              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-2 text-xs">
-                <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Account Coordinates</div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <span className="text-slate-500 block text-[10px]">Email:</span>
-                    <span className="font-medium text-slate-800">{selectedAccount.email || '—'}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 block text-[10px]">Phone:</span>
-                    <span className="font-medium text-slate-800">{selectedAccount.phone || '—'}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 block text-[10px]">Location:</span>
-                    <span className="font-medium text-slate-800">{selectedAccount.city || '—'}, {selectedAccount.state || '—'}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 block text-[10px]">Credit Line:</span>
-                    <span className="font-semibold text-slate-900">{formatCurrency(selectedAccount.credit_limit)}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Contacts belonging to this account */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Associated Contacts</span>
-                  <button
-                    onClick={() => {
-                      setNewContact({ ...newContact, account_id: selectedAccount.id });
-                      setShowCreateContactModal(true);
-                    }}
-                    className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Add Contact</span>
-                  </button>
-                </div>
-
-                <div className="space-y-2">
-                  {contacts.filter(c => c.account_id === selectedAccount.id).map(c => (
-                    <div key={c.id} className="p-3 bg-white border border-slate-200 rounded-lg flex items-center justify-between text-xs">
-                      <div>
-                        <div className="font-semibold text-slate-900 flex items-center gap-1.5">
-                          <span>{c.display_name}</span>
-                          {c.is_primary && <span className="px-1.5 py-0.2 bg-blue-100 text-blue-700 text-[9px] font-bold rounded">Primary</span>}
-                        </div>
-                        <div className="text-[10px] text-slate-500">{c.designation || 'Staff'} • {c.phone}</div>
-                      </div>
-                      <span className="capitalize text-[10px] bg-slate-100 px-2 py-0.5 rounded font-medium text-slate-700">
-                        {c.role.replace('_', ' ')}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-end">
-              <button
-                onClick={() => setSelectedAccount(null)}
-                className="px-4 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-100"
-              >
-                Close Dossier
-              </button>
-            </div>
-          </div>
-        </div>
+        <Customer360 accountId={selectedAccount.id} onClose={() => setSelectedAccount(null)} onChanged={loadData} />
       )}
 
       {/* CREATE ACCOUNT MODAL */}

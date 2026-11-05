@@ -1091,15 +1091,15 @@ export class MetaService {
     // 2. Fetch Aggregated Metrics for selected account and date range
     let dateClause = '';
     const queryParams: any[] = [organizationId];
+    let accountClause = '';
     if (selectedAdAccount) {
       queryParams.push(selectedAdAccount.id);
-    } else {
-      queryParams.push('all');
+      accountClause = `AND ad_account_id = $${queryParams.length}`;
     }
 
     if (dateRange?.startDate && dateRange?.endDate) {
       queryParams.push(dateRange.startDate, dateRange.endDate);
-      dateClause = ` AND date >= $3 AND date <= $4`;
+      dateClause = ` AND date >= $${queryParams.length - 1} AND date <= $${queryParams.length}`;
     } else {
       dateClause = ` AND date >= CURRENT_DATE - INTERVAL '30 days'`;
     }
@@ -1116,7 +1116,7 @@ export class MetaService {
       FROM marketing_daily_insights
       WHERE organization_id = $1
         AND level = 'account'
-        ${selectedAdAccount ? 'AND ad_account_id = $2' : ''}
+        ${accountClause}
         ${dateClause};`,
       queryParams
     );

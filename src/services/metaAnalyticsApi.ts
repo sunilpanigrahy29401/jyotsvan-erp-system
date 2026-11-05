@@ -17,7 +17,7 @@ const BASE_URL = '/api/integrations/meta/analytics';
 function getHeaders(): HeadersInit {
   return {
     'Content-Type': 'application/json',
-    'x-organization-id': 'org-jyotsvan-core',
+    'x-organization-id': 'org-jyotsvan-corp',
     'x-user-id': 'usr-owner-sunil',
   };
 }

@@ -324,7 +324,10 @@ export async function syncFoundationData() {
       { name: 'reports', public: false },
     ];
 
+    // storage.buckets exists only on InsForge. Use a savepoint so its absence (plain Postgres, CI)
+    // cannot abort the surrounding transaction and silently roll back the whole foundation seed.
     for (const b of defaultBuckets) {
+      await client.query('SAVEPOINT storage_bucket');
       try {
         await client.query(
           `INSERT INTO storage.buckets (name, public)
@@ -332,8 +335,10 @@ export async function syncFoundationData() {
            ON CONFLICT (name) DO NOTHING`,
           [b.name, b.public]
         );
+        await client.query('RELEASE SAVEPOINT storage_bucket');
       } catch (bucketErr) {
-        console.warn(`[PostgreSQL Storage] Skipping bucket ${b.name}:`, bucketErr);
+        await client.query('ROLLBACK TO SAVEPOINT storage_bucket');
+        console.warn(`[PostgreSQL Storage] Skipping bucket ${b.name}: ${bucketErr instanceof Error ? bucketErr.message : bucketErr}`);
       }
     }
 
