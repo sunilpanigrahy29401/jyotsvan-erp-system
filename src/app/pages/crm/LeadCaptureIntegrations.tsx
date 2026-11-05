@@ -173,7 +173,7 @@ export const LeadCaptureIntegrations: React.FC<LeadCaptureIntegrationsProps> = (
                     : 'Ingestion pipeline established and ready for webhook payloads.'}
                 </p>
                 <div className="text-xs font-mono text-slate-400 bg-slate-50 px-2 py-1 rounded border border-slate-200">
-                  provider_key: {cfg.provider_key}
+                  provider: {cfg.provider}
                 </div>
               </div>
 

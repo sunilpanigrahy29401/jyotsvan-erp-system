@@ -353,7 +353,7 @@ export async function runFieldSalesMigration() {
     const repEmail = repCheck.rows[0]?.email || 'field.sales@jyotsvan.enterprise';
 
     // Seed Territory Assignments
-    const terrRes = await client.query(`SELECT id, name, code FROM territories WHERE organization_id = $1 LIMIT 4`, [orgId]);
+    const terrRes = await client.query(`SELECT id, territory_name AS name, territory_code AS code FROM territories WHERE organization_id = $1 LIMIT 4`, [orgId]);
     if (terrRes.rows.length > 0) {
       for (let i = 0; i < terrRes.rows.length; i++) {
         const terr = terrRes.rows[i];

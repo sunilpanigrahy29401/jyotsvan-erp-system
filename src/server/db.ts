@@ -10,11 +10,31 @@ if (!connectionString) {
   );
 }
 
+/**
+ * TLS for the database connection.
+ * - Certificates are verified by default.
+ * - DATABASE_SSL=disable          -> no TLS (local development only).
+ * - DATABASE_SSL_CA=<PEM string>  -> trust a private CA (e.g. managed provider).
+ * - DATABASE_SSL_REJECT_UNAUTHORIZED=false -> explicit, logged opt-out (not allowed in production).
+ */
+function buildSslConfig(): false | { rejectUnauthorized: boolean; ca?: string } {
+  const mode = (process.env.DATABASE_SSL || '').toLowerCase();
+  if (mode === 'disable') return false;
+  const optOut = (process.env.DATABASE_SSL_REJECT_UNAUTHORIZED || '').toLowerCase() === 'false';
+  if (optOut) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('DATABASE_SSL_REJECT_UNAUTHORIZED=false is not allowed in production. Provide DATABASE_SSL_CA instead.');
+    }
+    console.warn('[PostgreSQL] TLS certificate verification is DISABLED (development opt-out).');
+    return { rejectUnauthorized: false };
+  }
+  const ca = process.env.DATABASE_SSL_CA;
+  return ca ? { rejectUnauthorized: true, ca } : { rejectUnauthorized: true };
+}
+
 export const pool = new Pool({
   connectionString: connectionString || undefined,
-  ssl: {
-    rejectUnauthorized: false,
-  },
+  ssl: buildSslConfig(),
   max: 25,
   idleTimeoutMillis: 60000,
   connectionTimeoutMillis: 30000,

@@ -1205,8 +1205,9 @@ export class GoogleAdsAnalyticsService {
 
       // Sync jobs
       const jobsRes = await client.query(
-        `SELECT * FROM integration_sync_jobs 
-         WHERE organization_id = $1 AND provider_key = 'google_ads' 
+        `SELECT * FROM integration_sync_jobs
+         WHERE organization_id = $1
+           AND connection_id IN (SELECT id FROM integration_connections WHERE organization_id = $1 AND provider_key = 'google_ads')
          ORDER BY created_at DESC LIMIT 10;`,
         [organizationId]
       );

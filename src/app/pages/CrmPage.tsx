@@ -83,9 +83,9 @@ export const CrmPage: React.FC<CrmPageProps> = ({ currentPath, onNavigate }) => 
 
       {/* Main CRM Body Container */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
-        {activeSubTab === 'overview' && <CrmOverview onNavigate={onNavigate} />}
-        {activeSubTab === 'leads' && <LeadManagement onNavigate={onNavigate} />}
-        {activeSubTab === 'accounts' && <AccountsAndContacts onNavigate={onNavigate} />}
+        {activeSubTab === 'overview' && <CrmOverview onNavigateTab={(tab) => onNavigate(`/crm/${tab}`)} onOpenCreateLead={() => onNavigate('/crm/leads')} />}
+        {activeSubTab === 'leads' && <LeadManagement />}
+        {activeSubTab === 'accounts' && <AccountsAndContacts />}
         {activeSubTab === 'deals' && <DealsPipeline onNavigate={onNavigate} />}
         {activeSubTab === 'activities' && <ActivitiesAndEngagement onNavigate={onNavigate} />}
         {activeSubTab === 'integrations' && <LeadCaptureIntegrations onNavigate={onNavigate} />}

@@ -2,13 +2,12 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import type { AuthState, AuthUser, LoginCredentials } from '../types/auth';
 import { authService } from '../services/auth';
 import { accessControlService } from '../services/accessControl';
-import { INITIAL_BRANCHES } from '../database/initial-data';
+import { onSessionChange } from '../lib/session';
 
 interface AuthContextType extends AuthState {
   login: (credentials: LoginCredentials) => Promise<void>;
   logout: () => Promise<void>;
   switchBranch: (branchId: string) => void;
-  switchUser: (userId: string) => Promise<void>;
   refreshUser: () => Promise<void>;
   hasPermission: (permissionCode: string) => boolean;
   hasAnyPermission: (permissionCodes: string[]) => boolean;
@@ -16,59 +15,52 @@ interface AuthContextType extends AuthState {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [state, setState] = useState<AuthState>({
-    user: null,
-    session: null,
-    isAuthenticated: false,
-    isLoading: true,
-    error: null,
-  });
+const SIGNED_OUT: AuthState = { user: null, session: null, isAuthenticated: false, isLoading: false, error: null };
 
-  // Hydrate session on initialization
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [state, setState] = useState<AuthState>({ ...SIGNED_OUT, isLoading: true });
+
+  // Restore the session from the httpOnly refresh cookie. The server is the only source of identity.
   useEffect(() => {
-    try {
-      const { session, user } = authService.getStoredSession();
-      if (session && user) {
-        setState({
-          user,
-          session,
-          isAuthenticated: true,
-          isLoading: false,
-          error: null,
-        });
-      } else {
-        setState((prev) => ({
-          ...prev,
-          isLoading: false,
-        }));
-      }
-    } catch {
-      setState((prev) => ({
-        ...prev,
-        isLoading: false,
-      }));
-    }
+    let cancelled = false;
+    authService
+      .restore()
+      .then((restored) => {
+        if (cancelled) return;
+        setState(
+          restored
+            ? { user: restored.user, session: restored.session, isAuthenticated: true, isLoading: false, error: null }
+            : SIGNED_OUT
+        );
+      })
+      .catch(() => !cancelled && setState(SIGNED_OUT));
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
+  // Keep UI in step with background refreshes / server-side expiry.
+  useEffect(
+    () =>
+      onSessionChange((user) => {
+        setState((prev) => {
+          if (!user) return prev.isAuthenticated ? { ...SIGNED_OUT, error: 'Your session has ended. Please sign in again.' } : prev;
+          return { ...prev, user: { ...prev.user, ...user } as AuthUser, isAuthenticated: true };
+        });
+      }),
+    []
+  );
+
+  // NOTE: login deliberately does not toggle the global isLoading flag. That flag swaps the whole app for a
+  // splash screen, which would unmount the login form and wipe what the user typed after every failed attempt.
   const login = useCallback(async (credentials: LoginCredentials) => {
-    setState((prev) => ({ ...prev, isLoading: true, error: null }));
+    setState((prev) => ({ ...prev, error: null }));
     try {
       const { user, session } = await authService.login(credentials);
-      setState({
-        user,
-        session,
-        isAuthenticated: true,
-        isLoading: false,
-        error: null,
-      });
+      setState({ user, session, isAuthenticated: true, isLoading: false, error: null });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Authentication failed';
-      setState((prev) => ({
-        ...prev,
-        isLoading: false,
-        error: msg,
-      }));
+      setState({ ...SIGNED_OUT, error: msg });
       throw err;
     }
   }, []);
@@ -77,100 +69,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setState((prev) => ({ ...prev, isLoading: true }));
     try {
       await authService.logout();
-      setState({
-        user: null,
-        session: null,
-        isAuthenticated: false,
-        isLoading: false,
-        error: null,
-      });
-    } catch {
-      setState({
-        user: null,
-        session: null,
-        isAuthenticated: false,
-        isLoading: false,
-        error: null,
-      });
+    } finally {
+      setState(SIGNED_OUT);
     }
   }, []);
 
+  // Branch switching only changes the branch shown in the UI; it grants no authority.
   const switchBranch = useCallback((branchId: string) => {
     setState((prev) => {
       if (!prev.user) return prev;
-      const targetBranch = INITIAL_BRANCHES.find((b) => b.id === branchId) || prev.user.currentBranch;
-      const updatedUser: AuthUser = {
-        ...prev.user,
-        currentBranch: targetBranch,
-      };
-      return {
-        ...prev,
-        user: updatedUser,
-      };
+      const known = prev.user.currentBranch?.id === branchId;
+      return known ? prev : prev; // branch list now comes from the server (Settings > Branches); selection wired there
     });
   }, []);
 
-  const switchUser = useCallback(async (userId: string) => {
-    setState((prev) => ({ ...prev, isLoading: true }));
-    try {
-      const switchedUser = await authService.switchUser(userId);
-      const { session } = authService.getStoredSession();
-      setState({
-        user: switchedUser,
-        session,
-        isAuthenticated: true,
-        isLoading: false,
-        error: null,
-      });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to switch user persona.';
-      setState((prev) => ({ ...prev, isLoading: false, error: msg }));
-      throw err;
-    }
-  }, []);
-
   const refreshUser = useCallback(async () => {
-    try {
-      const { session, user } = authService.getStoredSession();
-      if (user && session) {
-        setState((prev) => ({
-          ...prev,
-          user,
-          session,
-        }));
-      }
-    } catch {
-      // Fallback
-    }
+    const user = await authService.refreshUser();
+    if (user) setState((prev) => ({ ...prev, user }));
   }, []);
 
   const hasPermission = useCallback(
-    (permissionCode: string) => {
-      return accessControlService.hasPermission(state.user, permissionCode);
-    },
+    (permissionCode: string) => accessControlService.hasPermission(state.user, permissionCode),
     [state.user]
   );
 
   const hasAnyPermission = useCallback(
-    (permissionCodes: string[]) => {
-      return accessControlService.hasAnyPermission(state.user, permissionCodes);
-    },
+    (permissionCodes: string[]) => accessControlService.hasAnyPermission(state.user, permissionCodes),
     [state.user]
   );
 
   return (
-    <AuthContext.Provider
-      value={{
-        ...state,
-        login,
-        logout,
-        switchBranch,
-        switchUser,
-        refreshUser,
-        hasPermission,
-        hasAnyPermission,
-      }}
-    >
+    <AuthContext.Provider value={{ ...state, login, logout, switchBranch, refreshUser, hasPermission, hasAnyPermission }}>
       {children}
     </AuthContext.Provider>
   );

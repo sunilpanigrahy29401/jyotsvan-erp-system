@@ -352,9 +352,14 @@ export async function runMetaAdsMigration(): Promise<void> {
         ctr NUMERIC(10, 4) DEFAULT 0,
         roas NUMERIC(10, 4) DEFAULT 0,
         created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
-        updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
-        CONSTRAINT uq_mkt_breakdown_insight UNIQUE (organization_id, ad_account_id, level, date, breakdown_type, breakdown_value, COALESCE(breakdown_secondary_value, ''))
+        updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
       );
+    `);
+    // A table-level UNIQUE constraint cannot contain an expression; a unique expression index can
+    // (and still satisfies the ON CONFLICT inference used by meta-service).
+    await client.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_mkt_breakdown_insight ON marketing_breakdown_insights
+        (organization_id, ad_account_id, level, date, breakdown_type, breakdown_value, COALESCE(breakdown_secondary_value, ''));
     `);
 
     // 9. Table: marketing_sync_exceptions

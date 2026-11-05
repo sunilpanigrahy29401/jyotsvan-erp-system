@@ -15,7 +15,7 @@ function getContext(req: Request) {
   const organizationId =
     (req.headers['x-organization-id'] as string) ||
     (req.query.organizationId as string) ||
-    'org-jyotsvan-core';
+    'org-jyotsvan-corp';
   const connectionId =
     (req.headers['x-connection-id'] as string) ||
     (req.query.connectionId as string) ||

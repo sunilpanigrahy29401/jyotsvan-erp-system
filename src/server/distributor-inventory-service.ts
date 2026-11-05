@@ -75,7 +75,7 @@ export class DistributorInventoryService {
         d.display_name as distributor_name,
         s.sku_code,
         s.name as sku_name,
-        s.category,
+        (SELECT cat.name FROM products pr JOIN categories cat ON cat.id = pr.category_id WHERE pr.id = s.product_id) AS category,
         u.short_code as unit_short_code,
         b.expiry_date,
         CASE 

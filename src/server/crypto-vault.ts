@@ -3,13 +3,41 @@
 
 import crypto from 'crypto';
 
-const MASTER_SECRET = process.env.ENCRYPTION_SECRET || 'jyotsvan-enterprise-master-encryption-key-2026-secure-salt';
+/**
+ * Master secret handling.
+ * - Production: ENCRYPTION_SECRET (>= 32 chars) is REQUIRED; the process refuses to start without it.
+ * - Development: an ephemeral random secret is used (stored credentials will not survive a restart).
+ * - LEGACY_VAULT_KEY_FALLBACK=true lets decryption ALSO try the old built-in key so existing
+ *   credentials can be read once and re-saved under the new secret. Remove after rotation.
+ */
+const LEGACY_SECRET = 'jyotsvan-enterprise-master-encryption-key-2026-secure-salt';
+
+function resolveMasterSecret(): string {
+  const secret = process.env.ENCRYPTION_SECRET;
+  if (secret && secret.length >= 32) return secret;
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('ENCRYPTION_SECRET (at least 32 characters) is required in production.');
+  }
+  console.warn('[Vault] ENCRYPTION_SECRET not set; using an ephemeral development key. Stored credentials will not survive a restart.');
+  return crypto.randomBytes(32).toString('hex');
+}
+
+const MASTER_SECRET = resolveMasterSecret();
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 16;
 const TAG_LENGTH = 16;
 
 // Derive a fixed 32-byte key using scrypt
 const DERIVED_KEY = crypto.scryptSync(MASTER_SECRET, 'jyotsvan-vault-salt', 32);
+const LEGACY_KEY = process.env.LEGACY_VAULT_KEY_FALLBACK === 'true'
+  ? crypto.scryptSync(LEGACY_SECRET, 'jyotsvan-vault-salt', 32)
+  : null;
+
+function decryptWithKey(key: Buffer, ivHex: string, tagHex: string, encryptedHex: string): string {
+  const decipher = crypto.createDecipheriv(ALGORITHM, key, Buffer.from(ivHex, 'hex'));
+  decipher.setAuthTag(Buffer.from(tagHex, 'hex'));
+  return decipher.update(encryptedHex, 'hex', 'utf8') + decipher.final('utf8');
+}
 
 /**
  * Encrypts arbitrary credential objects or strings into a tamper-evident AES-256-GCM payload.
@@ -40,13 +68,13 @@ export function decryptCredentials<T = Record<string, unknown>>(cipherBase64: st
       throw new Error('Malformed encrypted credential token');
     }
 
-    const iv = Buffer.from(ivHex, 'hex');
-    const tag = Buffer.from(tagHex, 'hex');
-    const decipher = crypto.createDecipheriv(ALGORITHM, DERIVED_KEY, iv);
-    decipher.setAuthTag(tag);
-
-    let decrypted = decipher.update(encryptedHex, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
+    let decrypted: string;
+    try {
+      decrypted = decryptWithKey(DERIVED_KEY, ivHex, tagHex, encryptedHex);
+    } catch (primaryErr) {
+      if (!LEGACY_KEY) throw primaryErr;
+      decrypted = decryptWithKey(LEGACY_KEY, ivHex, tagHex, encryptedHex);
+    }
 
     try {
       return JSON.parse(decrypted) as T;

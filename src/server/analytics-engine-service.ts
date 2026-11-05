@@ -215,7 +215,7 @@ export class AnalyticsEngineService {
     let totalStockUnits = 68400;
     try {
       const invRes = await pool.query(
-        `SELECT COALESCE(SUM(quantity_on_hand), 0) as units FROM inventory_items WHERE organization_id = $1`,
+        `SELECT COALESCE(SUM(available_quantity + reserved_quantity + quarantine_quantity), 0) as units FROM inventory_balances WHERE organization_id = $1`,
         [organizationId]
       );
       if (invRes.rows.length > 0 && parseInt(invRes.rows[0].units, 10) > 0) {

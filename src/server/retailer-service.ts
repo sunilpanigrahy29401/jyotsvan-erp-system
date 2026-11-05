@@ -807,7 +807,7 @@ export class RetailerService {
         ra.*,
         s.sku_code,
         s.name as sku_name,
-        s.category,
+        (SELECT cat.name FROM products pr JOIN categories cat ON cat.id = pr.category_id WHERE pr.id = s.product_id) AS category,
         s.uom
       FROM retailer_assortments ra
       JOIN skus s ON s.id = ra.sku_id

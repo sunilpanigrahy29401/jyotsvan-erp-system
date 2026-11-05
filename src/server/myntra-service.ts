@@ -516,7 +516,7 @@ export class MyntraService {
    */
   static async getMappings(organizationId: string): Promise<MarketplaceEntityMapping[]> {
     const res = await pool.query(
-      `SELECT m.*, p.title as jyotsvan_product_name, p.sku as jyotsvan_sku
+      `SELECT m.*, p.name as jyotsvan_product_name, p.sku as jyotsvan_sku
        FROM marketplace_entity_mappings m
        LEFT JOIN products p ON p.id::text = m.jyotsvan_product_id OR p.sku = m.jyotsvan_sku
        WHERE m.organization_id = $1 AND m.provider_key = 'myntra'

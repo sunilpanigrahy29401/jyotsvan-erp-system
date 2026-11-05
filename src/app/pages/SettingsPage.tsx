@@ -53,14 +53,13 @@ export interface SettingsPageProps {
 
 export function SettingsPage({ currentPath = '/settings', onNavigate }: SettingsPageProps) {
   const { showToast } = useToast();
-  const { user: currentUser, switchUser } = useAuth();
+  const { user: currentUser } = useAuth();
 
   const [healthStatus, setHealthStatus] = useState<{ status: string; message: string }>({
     status: 'checking',
     message: 'Evaluating connection status...',
   });
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isSwitchingPersona, setIsSwitchingPersona] = useState(false);
 
   const checkConnection = async () => {
     setIsRefreshing(true);
@@ -74,20 +73,6 @@ export function SettingsPage({ currentPath = '/settings', onNavigate }: Settings
       checkConnection();
     }
   }, [currentPath]);
-
-  // Handle Quick Persona Switching for QA & Verification
-  const handleQuickSwitch = async (userId: string, roleName: string) => {
-    setIsSwitchingPersona(true);
-    try {
-      await switchUser(userId);
-      showToast(`Switched active persona to ${roleName}`, 'info');
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to switch persona';
-      showToast(msg, 'error');
-    } finally {
-      setIsSwitchingPersona(false);
-    }
-  };
 
   const [basePath, queryString] = currentPath.split('?');
   const queryParams = new URLSearchParams(queryString || '');
@@ -502,7 +487,7 @@ export function SettingsPage({ currentPath = '/settings', onNavigate }: Settings
               </div>
               <div>
                 <div className="text-xs font-bold text-slate-900 flex items-center gap-2">
-                  <span>Active Security Persona: {currentUser?.full_name}</span>
+                  <span>Signed in as: {currentUser?.full_name}</span>
                   <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200 text-[10px] py-0">
                     {currentUser?.roles?.map((r) => r.name).join(', ') || 'Standard User'}
                   </Badge>
@@ -513,56 +498,12 @@ export function SettingsPage({ currentPath = '/settings', onNavigate }: Settings
                   )}
                 </div>
                 <p className="text-[11px] text-slate-500 mt-0.5">
-                  Simulate different roles to verify dynamic navigation filtering, route protection, and action gating.
+                  Your access is determined by the roles assigned to your account. Ask an administrator to change them.
                 </p>
               </div>
             </div>
 
-            {/* Quick Switch Buttons */}
-            <div className="flex flex-wrap items-center gap-1.5 self-stretch md:self-auto">
-              <button
-                onClick={() => handleQuickSwitch('usr-default-admin', 'Super Admin')}
-                disabled={isSwitchingPersona || currentUser?.is_super_admin}
-                className="px-2 py-1 text-[11px] font-medium bg-white border border-slate-200 rounded hover:bg-slate-50 text-slate-700 disabled:opacity-40"
-              >
-                Super Admin
-              </button>
-              <button
-                onClick={() => handleQuickSwitch('usr-mgmt-01', 'Management')}
-                disabled={isSwitchingPersona || currentUser?.roles?.some((r) => r.slug === 'management')}
-                className="px-2 py-1 text-[11px] font-medium bg-white border border-slate-200 rounded hover:bg-slate-50 text-slate-700 disabled:opacity-40"
-              >
-                Management
-              </button>
-              <button
-                onClick={() => handleQuickSwitch('usr-wh-01', 'Warehouse Mgr')}
-                disabled={isSwitchingPersona || currentUser?.roles?.some((r) => r.slug === 'warehouse_manager')}
-                className="px-2 py-1 text-[11px] font-medium bg-white border border-slate-200 rounded hover:bg-slate-50 text-slate-700 disabled:opacity-40"
-              >
-                Warehouse Mgr
-              </button>
-              <button
-                onClick={() => handleQuickSwitch('usr-mkt-01', 'Marketing')}
-                disabled={isSwitchingPersona || currentUser?.roles?.some((r) => r.slug === 'marketing')}
-                className="px-2 py-1 text-[11px] font-medium bg-white border border-slate-200 rounded hover:bg-slate-50 text-slate-700 disabled:opacity-40"
-              >
-                Marketing
-              </button>
-              <button
-                onClick={() => handleQuickSwitch('usr-fin-01', 'Finance')}
-                disabled={isSwitchingPersona || currentUser?.roles?.some((r) => r.slug === 'finance')}
-                className="px-2 py-1 text-[11px] font-medium bg-white border border-slate-200 rounded hover:bg-slate-50 text-slate-700 disabled:opacity-40"
-              >
-                Finance
-              </button>
-              <button
-                onClick={() => handleQuickSwitch('usr-sales-01', 'Field Sales')}
-                disabled={isSwitchingPersona || currentUser?.roles?.some((r) => r.slug === 'field_sales')}
-                className="px-2 py-1 text-[11px] font-medium bg-white border border-slate-200 rounded hover:bg-slate-50 text-slate-700 disabled:opacity-40"
-              >
-                Field Sales
-              </button>
-            </div>
+
           </CardContent>
         </Card>
 

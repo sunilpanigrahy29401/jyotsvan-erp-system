@@ -9,9 +9,8 @@ export const notificationRouter = Router();
 
 // Helper to extract orgId and userId from request headers or query
 function getAuthContext(req: any) {
-  const orgId = (req.headers['x-organization-id'] as string) || (req.query.organizationId as string) || 'org-jyotsvan-corp';
-  const userId = (req.headers['x-user-id'] as string) || (req.query.userId as string) || 'usr-super-admin';
-  return { orgId, userId };
+  // Identity comes from the verified session only (set by the authenticate middleware).
+  return { orgId: req.auth.organizationId as string, userId: req.auth.userId as string };
 }
 
 /**

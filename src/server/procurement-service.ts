@@ -1783,7 +1783,7 @@ export class ProcurementService {
       `SELECT 
         po.id, po.po_number, po.order_date, po.expected_delivery_date, po.status,
         po.total_amount::float as total_amount,
-        s.name as supplier_name, s.supplier_code,
+        s.supplier_name as supplier_name, s.supplier_code,
         w.name as warehouse_name,
         COALESCE(SUM(poi.quantity), 0)::float as ordered_quantity,
         COALESCE(SUM(poi.received_quantity), 0)::float as received_quantity,
@@ -1806,7 +1806,7 @@ export class ProcurementService {
   static async getSupplierProcurementSummary(orgId: string): Promise<any[]> {
     const res = await pool.query(
       `SELECT 
-        s.id as supplier_id, s.name as supplier_name, s.supplier_code, s.rating_status,
+        s.id as supplier_id, s.supplier_name as supplier_name, s.supplier_code, s.rating_status,
         COUNT(DISTINCT po.id)::int as purchase_orders_count,
         COALESCE(SUM(po.total_amount), 0)::float as total_spend,
         COUNT(DISTINCT poi.sku_id)::int as skus_procured_count

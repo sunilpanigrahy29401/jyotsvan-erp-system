@@ -6,12 +6,12 @@ import { Input } from '../../components/ui/input';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
 import { Mail, Lock, ShieldCheck, Database } from 'lucide-react';
-import { ENV } from '../../config/env';
 
 export function LoginPage() {
-  const { login, isLoading, error } = useAuth();
+  const { login, error } = useAuth();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { showToast } = useToast();
-  const [email, setEmail] = useState('admin@jyotsvan.enterprise');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [validationError, setValidationError] = useState('');
 
@@ -24,43 +24,18 @@ export function LoginPage() {
       return;
     }
 
+    setIsSubmitting(true);
     try {
       await login({ email, password });
-      showToast('Authentication Successful', {
-        description: 'Welcome to Jyotsvan Enterprise Platform foundation.',
+      showToast('Signed in', {
+        description: 'Welcome to the Jyotsvan Enterprise Platform.',
         variant: 'success',
       });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Login failed';
       setValidationError(msg);
-    }
-  };
-
-  const handleQuickSunilLogin = async () => {
-    setEmail('sunilpanigrahy29401@gmail.com');
-    try {
-      await login({ email: 'sunilpanigrahy29401@gmail.com' });
-      showToast('Admin Session Initialized', {
-        description: 'Logged in as Sunil Panigrahy (Super Admin) synced with InsForge PostgreSQL.',
-        variant: 'success',
-      });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Login failed';
-      setValidationError(msg);
-    }
-  };
-
-  const handleQuickArchitectLogin = async () => {
-    setEmail('admin@jyotsvan.enterprise');
-    try {
-      await login({ email: 'admin@jyotsvan.enterprise' });
-      showToast('Architect Session Initialized', {
-        description: 'Logged in as Lead System Architect with Super Admin privileges.',
-        variant: 'success',
-      });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Login failed';
-      setValidationError(msg);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -102,12 +77,6 @@ export function LoginPage() {
                 </span>
                 <span className="font-mono text-[11px] text-slate-600">InsForge</span>
               </div>
-              <div className="flex items-center justify-between text-[11px] text-slate-500">
-                <span>Connection Status</span>
-                <span className={ENV.isInsforgeConfigured ? 'text-emerald-600 font-medium' : 'text-amber-600 font-medium'}>
-                  {ENV.isInsforgeConfigured ? 'InsForge Live Connected' : 'Local Foundation Mode'}
-                </span>
-              </div>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -131,7 +100,7 @@ export function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 leftIcon={<Lock className="w-4 h-4" />}
-                hint={ENV.isInsforgeConfigured ? 'Required for InsForge Auth' : 'Optional in Foundation Dev Mode'}
+                
                 autoComplete="current-password"
               />
 
@@ -145,47 +114,12 @@ export function LoginPage() {
                 id="login-submit-button"
                 type="submit"
                 className="w-full"
-                isLoading={isLoading}
+                isLoading={isSubmitting}
               >
                 Sign In to Jyotsvan
               </Button>
             </form>
 
-            <div className="relative my-4">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-slate-200" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-white px-2 text-slate-400 font-mono text-[10px]">
-                  Evaluation Session
-                </span>
-              </div>
-            </div>
-
-            {/* Quick Login for System Verification */}
-            <div className="space-y-2">
-              <Button
-                id="quick-sunil-login-btn"
-                variant="outline"
-                type="button"
-                className="w-full text-xs border-emerald-300 bg-emerald-50/50 hover:bg-emerald-100/70 text-emerald-900"
-                onClick={handleQuickSunilLogin}
-                leftIcon={<ShieldCheck className="w-4 h-4 text-emerald-700" />}
-              >
-                Sign In as Sunil Panigrahy (Super Admin)
-              </Button>
-
-              <Button
-                id="quick-architect-login-btn"
-                variant="outline"
-                type="button"
-                className="w-full text-xs"
-                onClick={handleQuickArchitectLogin}
-                leftIcon={<ShieldCheck className="w-4 h-4 text-slate-700" />}
-              >
-                Sign In as Lead System Architect
-              </Button>
-            </div>
           </CardContent>
         </Card>
 
