@@ -25,7 +25,7 @@ InsForge (managed BaaS). Gemini (optional) for AI. TypeScript throughout (ESM, `
 2. Do not trust the status claims in `docs/JYOTSVAN_*.md` (they say "COMPLETE"/"zero errors"). `docs/engineering/IMPLEMENTATION_STATUS.md` is the evidence-based replacement.
 3. Server-side auth is effectively absent (SECURITY_ARCHITECTURE.md). Any new endpoint must NOT copy the existing pattern of taking `organizationId`/`x-organization-id` from the client; derive tenant from a verified session.
 4. Don't modify migrations in place; add new idempotent ones and register in `runAllMigrations()` (`server.ts:337`). See DATABASE_MIGRATIONS.md.
-5. Never commit `.env*`, `graphify-out/` (locally excluded via `.git/info/exclude`), or `dist/`.
+5. Never commit `.env*`, `dist/`, or the machine-local `graphify-out/.graphify_python` and `graphify-out/.graphify_root`. The rest of `graphify-out/` (graph, report, html, manifest, cache) is committed; refresh it with `/graphify . --update` and commit it with the code change that caused the drift.
 6. Secrets: `src/server/crypto-vault.ts` falls back to a hard-coded key if `ENCRYPTION_SECRET` is unset — set it before storing real credentials.
 
 ## Layout
