@@ -82,6 +82,9 @@ export const PUBLIC_PATHS: Array<{ method: string; test: RegExp }> = [
   { method: 'POST', test: /^\/auth\/(login|refresh|logout)$/ },
   { method: 'POST', test: /^\/(integrations\/)?webhooks\/[^/]+\/[^/]+$/ },
   { method: 'POST', test: /^\/crm\/webhooks\/inbound$/ },
+  // Marketing unsubscribe links: authenticated by an HMAC-signed, expiring token; GET only renders a confirmation form.
+  { method: 'GET', test: /^\/crm\/public\/unsubscribe$/ },
+  { method: 'POST', test: /^\/crm\/public\/unsubscribe$/ },
   { method: 'GET', test: /^\/(integrations\/)?meta\/oauth\/callback$/ },
 ];
 

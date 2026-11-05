@@ -1,9 +1,79 @@
 // CRM core helpers shared by the lead/contact/account/deal services: numbering, normalisation, duplicate detection,
 // rules-based scoring, auto-assignment and SLA. Every function takes the transaction client so callers stay atomic.
 import type { PoolClient } from 'pg';
+import { pool } from './db.ts';
 import { newId } from './core/tokens.ts';
 
 type Q = Pick<PoolClient, 'query'>;
+export type Actor = { id: string; email: string; name?: string };
+
+export class CrmError extends Error {
+  constructor(message: string, public status = 400, public code = 'BAD_REQUEST', public extra?: Record<string, unknown>) {
+    super(message);
+  }
+}
+
+/** Runs fn inside one transaction on a dedicated connection (tenant context is preserved by the pool). */
+export async function tx<T>(fn: (c: PoolClient) => Promise<T>): Promise<T> {
+  const c = await pool.connect();
+  try {
+    await c.query('BEGIN');
+    const out = await fn(c);
+    await c.query('COMMIT');
+    return out;
+  } catch (e) {
+    await c.query('ROLLBACK').catch(() => undefined);
+    throw e;
+  } finally {
+    c.release();
+  }
+}
+
+/** Activities require a real user as author. For system-created work, attribute it to the tenant's oldest user (the account owner). */
+export async function systemUserId(db: Pick<PoolClient, 'query'>, orgId: string): Promise<string | null> {
+  const r = await db.query(`SELECT id FROM users WHERE organization_id = $1 ORDER BY is_super_admin DESC, created_at ASC LIMIT 1`, [orgId]);
+  return r.rows[0]?.id ?? null;
+}
+
+/** Trims strings; blank becomes null; undefined stays undefined (= "not provided"). */
+export function clean(v: unknown): any {
+  if (typeof v === 'string') {
+    const t = v.trim();
+    return t === '' ? null : t;
+  }
+  return v;
+}
+
+/** Copies only whitelisted keys that are present in the body, cleaned. */
+export function pickFields(body: Record<string, any>, keys: readonly string[]): Record<string, any> {
+  const out: Record<string, any> = {};
+  for (const k of keys) if (Object.prototype.hasOwnProperty.call(body || {}, k)) out[k] = clean(body[k]);
+  return out;
+}
+
+export function oneOf(value: any, allowed: readonly string[], field: string) {
+  if (value !== undefined && value !== null && !allowed.includes(value)) {
+    throw new CrmError(`${field} must be one of: ${allowed.join(', ')}.`, 400, 'INVALID_' + field.toUpperCase());
+  }
+}
+
+export function nonNegative(value: any, field: string) {
+  if (value !== undefined && value !== null && (!Number.isFinite(Number(value)) || Number(value) < 0)) {
+    throw new CrmError(`${field} must be a non-negative number.`, 400, 'INVALID_NUMBER');
+  }
+}
+
+export function pageOf(q: Record<string, any>, max = 200) {
+  const page = Math.max(1, parseInt(String(q.page ?? '1'), 10) || 1);
+  const limit = Math.min(max, Math.max(1, parseInt(String(q.limit ?? '50'), 10) || 50));
+  return { page, limit, offset: (page - 1) * limit };
+}
+
+/** Builds "col = $n" SET fragments from an object (column names come from code, never from the request). */
+export function buildSet(cols: Record<string, any>, startAt = 1): { sql: string; values: any[] } {
+  const keys = Object.keys(cols);
+  return { sql: keys.map((k, i) => `${k} = $${startAt + i}`).join(', '), values: keys.map((k) => cols[k]) };
+}
 
 // ---------------------------------------------------------------------------------------------------------------------
 // Normalisation
@@ -29,7 +99,7 @@ export function validEmail(e?: string | null): boolean {
 // ---------------------------------------------------------------------------------------------------------------------
 // Numbering (atomic; never reuses a number even after deletes)
 // ---------------------------------------------------------------------------------------------------------------------
-export async function nextNumber(db: Q, orgId: string, name: 'lead' | 'account' | 'deal', prefix: string): Promise<string> {
+export async function nextNumber(db: Q, orgId: string, name: 'lead' | 'account' | 'deal' | 'quote' | 'ticket' | 'handoff', prefix: string): Promise<string> {
   const r = await db.query(
     `INSERT INTO crm_counters (organization_id, name, value) VALUES ($1, $2, 1)
      ON CONFLICT (organization_id, name) DO UPDATE SET value = crm_counters.value + 1
@@ -224,3 +294,55 @@ export async function markFirstResponse(db: Q, orgId: string, leadId: string): P
 }
 
 export const idFor = (prefix: string) => newId(prefix);
+
+// ---------------------------------------------------------------------------------------------------------------------
+// CSV import helpers
+// ---------------------------------------------------------------------------------------------------------------------
+/** RFC 4180 parser (quotes, escaped quotes, CRLF, embedded newlines). Returns rows of cells. */
+export function parseCsv(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = '';
+  let quoted = false;
+  const s = text.replace(/^﻿/, '');
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (quoted) {
+      if (ch === '"') { if (s[i + 1] === '"') { cell += '"'; i++; } else quoted = false; }
+      else cell += ch;
+    } else if (ch === '"') quoted = true;
+    else if (ch === ',') { row.push(cell); cell = ''; }
+    else if (ch === '\n' || ch === '\r') {
+      if (ch === '\r' && s[i + 1] === '\n') i++;
+      row.push(cell); cell = '';
+      if (row.some((c) => c.trim() !== '')) rows.push(row);
+      row = [];
+    } else cell += ch;
+  }
+  row.push(cell);
+  if (row.some((c) => c.trim() !== '')) rows.push(row);
+  return rows;
+}
+
+const LEAD_HEADER_ALIASES: Record<string, string> = {
+  name: 'display_name', full_name: 'display_name', contact_name: 'display_name', first_name: 'first_name', firstname: 'first_name', last_name: 'last_name', lastname: 'last_name',
+  mobile: 'phone', phone: 'phone', phone_number: 'phone', contact_number: 'phone', whatsapp: 'phone', email: 'email', email_id: 'email', company: 'company_name', company_name: 'company_name',
+  organisation: 'company_name', organization: 'company_name', designation: 'designation', city: 'city', state: 'state', pincode: 'pincode', pin: 'pincode', address: 'address',
+  requirement: 'expected_requirement', message: 'expected_requirement', enquiry: 'expected_requirement', value: 'estimated_deal_value', deal_value: 'estimated_deal_value',
+  estimated_value: 'estimated_deal_value', quantity: 'estimated_quantity', source: 'source_name', priority: 'priority', territory: 'territory', website: 'website', gstin: 'gstin',
+};
+
+/** Turns CSV text into lead-shaped rows using forgiving header names. Unknown columns are reported, not silently dropped. */
+export function csvToLeadRows(text: string): { rows: Record<string, any>[]; unknown_columns: string[] } {
+  const grid = parseCsv(text);
+  if (grid.length < 2) throw new CrmError('The CSV needs a header row and at least one data row.', 400, 'EMPTY');
+  const headers = grid[0].map((h) => h.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, ''));
+  const map = headers.map((h) => LEAD_HEADER_ALIASES[h]);
+  const unknown = grid[0].filter((_h, i) => !map[i]).map((h) => h.trim()).filter(Boolean);
+  const rows = grid.slice(1).map((cells) => {
+    const o: Record<string, any> = {};
+    cells.forEach((v, i) => { if (map[i] && v.trim() !== '') o[map[i]] = v.trim(); });
+    return o;
+  });
+  return { rows, unknown_columns: unknown };
+}

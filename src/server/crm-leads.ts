@@ -1,18 +1,13 @@
 // Lead lifecycle: create / update / archive / merge / bulk / import / export / auto-assign / SLA.
 import { pool } from './db.ts';
 import { newId } from './core/tokens.ts';
+import { fireEvent } from './crm-automation.ts';
 import {
-  findDuplicates, markFirstResponse, nextNumber, normEmail, normPhone, pickOwner, scoreLead, slaDueAt, validEmail,
-  type DuplicateMatch,
+  CrmError, clean, tx, findDuplicates, markFirstResponse, nextNumber, normEmail, normPhone, pickOwner, scoreLead, slaDueAt, validEmail,
+  type Actor, type DuplicateMatch,
 } from './crm-core.ts';
 
-export class CrmError extends Error {
-  constructor(message: string, public status = 400, public code = 'BAD_REQUEST', public extra?: Record<string, unknown>) {
-    super(message);
-  }
-}
-
-type Actor = { id: string; email: string };
+export { CrmError };
 
 export const LEAD_STATUSES = ['new', 'assigned', 'contacted', 'attempted', 'qualified', 'nurturing', 'unqualified', 'converted', 'lost', 'archived'] as const;
 const PRIORITIES = ['low', 'medium', 'high', 'urgent'];
@@ -30,29 +25,6 @@ const JSON_COLS = ['product_interest', 'tags', 'custom_fields'] as const;
 const NOT_NULL = new Set(['first_name', 'last_name', 'display_name', 'phone', 'relationship_type', 'priority', 'purchase_timeline', 'business_size', 'lead_score']);
 /** Fields whose change should re-run scoring. */
 const SCORE_INPUTS = new Set(['estimated_deal_value', 'estimated_quantity', 'purchase_timeline', 'email', 'phone', 'company_name', 'designation', 'state', 'city', 'source_id', 'relationship_type', 'business_size', 'industry', 'budget_range', 'priority', 'territory', 'website']);
-
-function clean(v: unknown): unknown {
-  if (typeof v === 'string') {
-    const t = v.trim();
-    return t === '' ? null : t;
-  }
-  return v === undefined ? undefined : v;
-}
-
-async function tx<T>(fn: (c: import('pg').PoolClient) => Promise<T>): Promise<T> {
-  const c = await pool.connect();
-  try {
-    await c.query('BEGIN');
-    const out = await fn(c);
-    await c.query('COMMIT');
-    return out;
-  } catch (e) {
-    await c.query('ROLLBACK').catch(() => undefined);
-    throw e;
-  } finally {
-    c.release();
-  }
-}
 
 function dupError(matches: DuplicateMatch[]): CrmError {
   const first = matches[0];
@@ -136,18 +108,20 @@ export class CrmLeads {
           d.estimated_quantity ?? null, d.estimated_deal_value ?? 0, JSON.stringify(d.product_interest ?? []), d.purchase_timeline ?? '30_days',
           d.budget_range ?? null, d.current_supplier ?? null, d.business_size ?? 'medium', d.source_id ?? null, d.campaign_id ?? null,
           d.campaign_name ?? null, ownerId, d.assigned_team ?? null, d.territory ?? null, score, priority, status,
-          d.qualification_notes ?? null, d.next_follow_up_date ?? null, JSON.stringify(d.tags ?? []), JSON.stringify(d.custom_fields ?? {}), actor.id,
+          d.qualification_notes ?? null, d.next_follow_up_date ?? null, JSON.stringify(d.tags ?? []), JSON.stringify(d.custom_fields ?? {}), (actor.id === "system" ? null : actor.id),
           phone, email, ownerId ? new Date() : null, due,
         ]
       );
       await c.query(
         `INSERT INTO crm_lead_status_history (id, lead_id, previous_status, new_status, reason, changed_by_user_id) VALUES ($1,$2,NULL,$3,$4,$5)`,
-        [newId('lsh'), id, status, ownerId && !d.assigned_employee_id ? 'Created and auto-assigned' : 'Lead created', actor.id]
+        [newId('lsh'), id, status, ownerId && !d.assigned_employee_id ? 'Created and auto-assigned' : 'Lead created', (actor.id === "system" ? null : actor.id)]
       );
       if (opts.importBatchId) await c.query(`UPDATE crm_leads SET import_batch_id = $1 WHERE id = $2`, [opts.importBatchId, id]);
       return r.rows[0];
     };
-    return opts.client ? run(opts.client) : tx(run);
+    const row = await (opts.client ? run(opts.client) : tx(run));
+    if (!opts.client) void fireEvent(orgId, 'lead.created', row, actor.id);
+    return row;
   }
 
   // ---------------------------------------------------------------------------------------------------------------
@@ -156,7 +130,8 @@ export class CrmLeads {
     for (const k of [...TEXT_COLS, ...NUM_COLS, ...JSON_COLS, 'status'] as const) if (Object.prototype.hasOwnProperty.call(raw, k)) d[k] = clean(raw[k]);
     validateCommon(d);
 
-    return tx(async (c) => {
+    let statusChanged = false;
+    const updated = await tx(async (c) => {
       const cur = (await c.query(`SELECT * FROM crm_leads WHERE organization_id = $1 AND id = $2 FOR UPDATE`, [orgId, leadId])).rows[0];
       if (!cur) throw new CrmError('Lead not found.', 404, 'NOT_FOUND');
       if (cur.is_converted && d.status && d.status !== 'converted') throw new CrmError('A converted lead cannot change status.', 409, 'LEAD_CONVERTED');
@@ -211,9 +186,12 @@ export class CrmLeads {
           [newId('lsh'), leadId, cur.status, d.status, d.disqualification_reason || raw.reason || 'Status update', actor.id]
         );
         if (cur.status === 'new' || cur.status === 'assigned') await markFirstResponse(c, orgId, leadId);
+        statusChanged = true;
       }
       return upd.rows[0];
     });
+    if (statusChanged) void fireEvent(orgId, 'lead.status_changed', updated, actor.id);
+    return updated;
   }
 
   // ---------------------------------------------------------------------------------------------------------------
@@ -426,6 +404,143 @@ export class CrmLeads {
        VALUES ($1,$2,'lead',$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
       [batchId, orgId, opts.filename || null, opts.mode, out.total, out.created, out.updated, out.duplicates, out.failed, JSON.stringify(out.errors), actor.id]
     );
+    return out;
+  }
+
+  // ---------------------------------------------------------------------------------------------------------------
+  static async list(orgId: string, f: Record<string, any>, page: { limit: number; offset: number }) {
+    const params: any[] = [orgId];
+    let where = 'l.organization_id = $1';
+    const add = (sql: string, v: any) => { params.push(v); where += ` AND ${sql.replace('?', `$${params.length}`)}`; };
+    if (f.archived === 'only') where += ' AND l.archived_at IS NOT NULL';
+    else if (f.archived !== 'include') where += ' AND l.archived_at IS NULL';
+    if (f.search) {
+      params.push(`%${String(f.search).toLowerCase()}%`);
+      const n = params.length;
+      const digits = String(f.search).replace(/\D/g, '');
+      where += ` AND (LOWER(l.display_name) LIKE $${n} OR LOWER(COALESCE(l.company_name,'')) LIKE $${n} OR LOWER(COALESCE(l.email,'')) LIKE $${n} OR LOWER(l.lead_number) LIKE $${n}`;
+      if (digits.length >= 4) { params.push(`%${digits}%`); where += ` OR l.phone_norm LIKE $${params.length} OR REGEXP_REPLACE(l.phone,'[^0-9]','','g') LIKE $${params.length}`; }
+      where += ')';
+    }
+    if (f.status) add('l.status = ?', f.status);
+    if (f.source_id) add('l.source_id = ?', f.source_id);
+    if (f.assigned_employee_id) add('l.assigned_employee_id = ?', f.assigned_employee_id);
+    if (f.priority) add('l.priority = ?', f.priority);
+    if (f.relationship_type) add('l.relationship_type = ?', f.relationship_type);
+    if (f.state) add('LOWER(l.state) = LOWER(?)', f.state);
+    if (f.tag) add('l.tags @> to_jsonb(?::text)', String(f.tag));
+    if (f.min_score) add('l.lead_score >= ?', Number(f.min_score));
+    if (f.unassigned === 'true') where += ' AND l.assigned_employee_id IS NULL';
+    if (f.sla_breached === 'true') where += ' AND l.first_response_at IS NULL AND l.sla_due_at < NOW()';
+    if (f.follow_up_due === 'true') where += ` AND l.next_follow_up_date <= NOW() AND l.status NOT IN ('converted','lost','archived','unqualified')`;
+    const sorts: Record<string, string> = { created_at: 'l.created_at', lead_score: 'l.lead_score', estimated_deal_value: 'l.estimated_deal_value', display_name: 'l.display_name', next_follow_up_date: 'l.next_follow_up_date', updated_at: 'l.updated_at' };
+    const sort = sorts[f.sort] || 'l.created_at';
+    const dir = String(f.dir).toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+    const total = Number((await pool.query(`SELECT COUNT(*)::int AS n FROM crm_leads l WHERE ${where}`, params)).rows[0].n);
+    params.push(page.limit, page.offset);
+    const rows = (await pool.query(
+      `SELECT l.*, s.name AS source_name, e.display_name AS assigned_employee_name,
+              (l.first_response_at IS NULL AND l.sla_due_at IS NOT NULL AND l.sla_due_at < NOW()) AS sla_overdue
+         FROM crm_leads l LEFT JOIN crm_lead_sources s ON s.id = l.source_id LEFT JOIN employees e ON e.id = l.assigned_employee_id
+        WHERE ${where} ORDER BY ${sort} ${dir} NULLS LAST, l.id LIMIT $${params.length - 1} OFFSET $${params.length}`, params)).rows;
+    return { rows, total };
+  }
+
+  static async get(orgId: string, leadId: string) {
+    const lead = (await pool.query(
+      `SELECT l.*, s.name AS source_name, e.display_name AS assigned_employee_name
+         FROM crm_leads l LEFT JOIN crm_lead_sources s ON s.id = l.source_id LEFT JOIN employees e ON e.id = l.assigned_employee_id
+        WHERE l.organization_id = $1 AND l.id = $2`, [orgId, leadId])).rows[0];
+    if (!lead) throw new CrmError('Lead not found.', 404, 'NOT_FOUND');
+    const history = (await pool.query(`SELECT * FROM crm_lead_status_history WHERE lead_id = $1 ORDER BY created_at DESC LIMIT 100`, [leadId])).rows;
+    return { ...lead, status_history: history };
+  }
+
+  /** Atomically turns a lead into account + contact (+ deal). Re-uses a matching account/contact instead of duplicating. */
+  static async convert(orgId: string, leadId: string, p: Record<string, any>, actor: Actor) {
+    const { ensureCrmDefaults } = await import('./crm-defaults.ts');
+    await ensureCrmDefaults(orgId);
+    const out = await tx(async (c) => {
+      const lead = (await c.query(`SELECT * FROM crm_leads WHERE organization_id = $1 AND id = $2 FOR UPDATE`, [orgId, leadId])).rows[0];
+      if (!lead) throw new CrmError('Lead not found.', 404, 'NOT_FOUND');
+      if (lead.is_converted) throw new CrmError('This lead has already been converted.', 409, 'LEAD_CONVERTED');
+      if (lead.archived_at) throw new CrmError('Restore the lead before converting it.', 409, 'LEAD_ARCHIVED');
+
+      // Account: explicit > matched by GSTIN/phone/e-mail > new.
+      let account: any;
+      if (p.existing_account_id) {
+        account = (await c.query(`SELECT * FROM crm_accounts WHERE organization_id = $1 AND id = $2 AND archived_at IS NULL`, [orgId, p.existing_account_id])).rows[0];
+        if (!account) throw new CrmError('Selected account does not exist.', 400, 'INVALID_ACCOUNT');
+      } else {
+        const dup = (await findDuplicates(c, orgId, { phone: lead.phone, email: lead.email, gstin: p.gstin })).find((m) => m.entity === 'account');
+        if (dup && !p.create_new_account) {
+          throw new CrmError(`An account "${dup.label}" (${dup.number}) already matches this lead. Choose it as existing_account_id, or pass create_new_account.`, 409, 'DUPLICATE', { matches: [dup] });
+        }
+        const accNo = await nextNumber(c, orgId, 'account', 'ACC');
+        const name = clean(p.account_name) || lead.company_name || `${lead.display_name}`;
+        account = (await c.query(
+          `INSERT INTO crm_accounts (id, organization_id, account_number, name, legal_name, relationship_type, industry, tier, website, email, phone, address, city, state, pincode,
+                                     gstin, assigned_employee_id, territory, status, created_by_user_id)
+           VALUES ($1,$2,$3,$4,$4,$5,$6,'tier_2',$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,'active',$17) RETURNING *`,
+          [newId('acc'), orgId, accNo, name, lead.relationship_type, lead.industry, lead.website, lead.email, lead.phone, lead.address, lead.city, lead.state, lead.pincode,
+            p.gstin ? String(p.gstin).trim().toUpperCase() : null, lead.assigned_employee_id, lead.territory, actor.id])).rows[0];
+      }
+
+      const hasPrimary = (await c.query(`SELECT 1 FROM crm_contacts WHERE account_id = $1 AND archived_at IS NULL AND is_primary = TRUE`, [account.id])).rows.length > 0;
+      const contact = (await c.query(
+        `INSERT INTO crm_contacts (id, organization_id, account_id, first_name, last_name, display_name, designation, email, phone, alternate_phone, is_primary, phone_norm, email_norm)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
+        [newId('con'), orgId, account.id, lead.first_name, lead.last_name, lead.display_name, lead.designation, lead.email, lead.phone, lead.alternate_phone, !hasPrimary, normPhone(lead.phone), normEmail(lead.email)])).rows[0];
+
+      let deal: any = null;
+      if (p.deal_title || Number(p.deal_value) > 0) {
+        const owner = clean(p.owner_employee_id) || lead.assigned_employee_id;
+        if (!owner) throw new CrmError('Choose a deal owner (the lead has no assigned employee).', 400, 'OWNER_REQUIRED');
+        const emp = await c.query(`SELECT 1 FROM employees WHERE id = $1 AND organization_id = $2`, [owner, orgId]);
+        if (!emp.rows.length) throw new CrmError('Deal owner does not exist in this organization.', 400, 'INVALID_EMPLOYEE');
+        const pipe = p.pipeline_id
+          ? (await c.query(`SELECT id FROM crm_pipelines WHERE organization_id = $1 AND id = $2 AND is_active = TRUE`, [orgId, p.pipeline_id])).rows[0]
+          : (await c.query(`SELECT id FROM crm_pipelines WHERE organization_id = $1 AND is_active = TRUE ORDER BY is_default DESC, created_at LIMIT 1`, [orgId])).rows[0];
+        if (!pipe) throw new CrmError('No active pipeline is configured.', 400, 'NO_PIPELINE');
+        const stage = (await c.query(`SELECT id FROM crm_pipeline_stages WHERE pipeline_id = $1 AND is_won_stage = FALSE AND is_lost_stage = FALSE ORDER BY display_order LIMIT 1`, [pipe.id])).rows[0];
+        if (!stage) throw new CrmError('The pipeline has no open stage.', 400, 'NO_STAGE');
+        const value = Number(p.deal_value ?? lead.estimated_deal_value ?? 0);
+        if (!Number.isFinite(value) || value < 0) throw new CrmError('deal_value must be a non-negative number.', 400, 'INVALID_NUMBER');
+        const close = p.expected_close_date || new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10);
+        const dealNo = await nextNumber(c, orgId, 'deal', 'DEAL');
+        deal = (await c.query(
+          `INSERT INTO crm_deals (id, organization_id, deal_number, title, pipeline_id, stage_id, account_id, primary_contact_id, lead_id, deal_value, expected_quantity,
+                                  expected_close_date, owner_employee_id, territory, status, description, created_by_user_id)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'open',$15,$16) RETURNING *`,
+          [newId('deal'), orgId, dealNo, clean(p.deal_title) || `${account.name} – ${lead.expected_requirement || 'Opportunity'}`.slice(0, 255), pipe.id, stage.id, account.id, contact.id, leadId,
+            value, lead.estimated_quantity, close, owner, lead.territory, lead.expected_requirement, actor.id])).rows[0];
+        await c.query(`INSERT INTO crm_deal_stage_history (id, deal_id, previous_stage_id, new_stage_id, notes, changed_by_user_id) VALUES ($1,$2,NULL,$3,'Created from lead conversion',$4)`, [newId('dsh'), deal.id, stage.id, actor.id]);
+      }
+
+      if (p.link_to_operational_entity?.entity_id && p.link_to_operational_entity?.entity_type) {
+        await c.query(
+          `INSERT INTO crm_account_links (id, organization_id, account_id, entity_type, entity_id, is_primary) VALUES ($1,$2,$3,$4,$5,TRUE) ON CONFLICT (account_id, entity_type, entity_id) DO NOTHING`,
+          [newId('lnk'), orgId, account.id, String(p.link_to_operational_entity.entity_type), String(p.link_to_operational_entity.entity_id)]);
+      }
+
+      await c.query(
+        `UPDATE crm_leads SET status = 'converted', is_converted = TRUE, converted_at = NOW(), converted_by_user_id = $3, converted_account_id = $4, converted_contact_id = $5,
+                converted_deal_id = $6, updated_at = NOW() WHERE organization_id = $1 AND id = $2`,
+        [orgId, leadId, actor.id, account.id, contact.id, deal?.id ?? null]);
+      await c.query(`INSERT INTO crm_lead_status_history (id, lead_id, previous_status, new_status, reason, changed_by_user_id) VALUES ($1,$2,$3,'converted','Converted to account',$4)`, [newId('lsh'), leadId, lead.status, actor.id]);
+      await markFirstResponse(c, orgId, leadId);
+      for (const t of ['crm_activities', 'crm_notes']) {
+        await c.query(`UPDATE ${t} SET account_id = $3, deal_id = COALESCE($4, deal_id) WHERE organization_id = $1 AND lead_id = $2`, [orgId, leadId, account.id, deal?.id ?? null]);
+      }
+      // Consent given as a lead carries over to the new contact so marketing permission is not silently lost.
+      await c.query(
+        `INSERT INTO crm_consents (id, organization_id, subject_type, subject_id, channel, purpose, status, source, evidence, recorded_by)
+         SELECT 'cns-' || gen_random_uuid(), organization_id, 'contact', $3::text, channel, purpose, status, 'lead_conversion', 'Carried over from lead ' || $2::text, $4::text
+           FROM (SELECT DISTINCT ON (channel, purpose) * FROM crm_consents WHERE organization_id = $1 AND subject_type = 'lead' AND subject_id = $2::text ORDER BY channel, purpose, created_at DESC) latest`,
+        [orgId, leadId, contact.id, actor.id]);
+      return { account, contact, deal };
+    });
+    if (out.deal) void fireEvent(orgId, 'deal.created', out.deal, actor.id);
     return out;
   }
 

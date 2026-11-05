@@ -47,7 +47,7 @@ describe('route map coverage', () => {
   it('only the intended routes are public', () => {
     const publicRoutes = routes.filter((r) => isPublic(r.method, r.full)).map((r) => `${r.method} ${r.full}`);
     for (const p of publicRoutes) {
-      expect(p).toMatch(/webhooks|oauth\/callback/);
+      expect(p).toMatch(/webhooks|oauth\/callback|crm\/public\/unsubscribe/);
     }
   });
 });
