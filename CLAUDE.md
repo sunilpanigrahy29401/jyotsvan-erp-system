@@ -55,4 +55,5 @@ files parsed partially (syntax-error regions) so distributor-UI dependency edges
 
 ## Engineering docs index (`docs/engineering/`)
 SYSTEM_OVERVIEW · DATABASE_ARCHITECTURE · DATABASE_MIGRATIONS · API_ARCHITECTURE · SECURITY_ARCHITECTURE ·
-MODULE_DEPENDENCIES · IMPLEMENTATION_STATUS · KNOWN_ISSUES · TESTING_STRATEGY · `modules/` (per-domain notes).
+MODULE_DEPENDENCIES · IMPLEMENTATION_STATUS · KNOWN_ISSUES · TESTING_STRATEGY · PRD_GAP_ANALYSIS · BUILD_PLAN · `modules/` (per-domain notes).
+Target spec: `docs/PRD_Jyotsvan_ERP.md` (PRD is the source of truth for scope; BUILD_PLAN.md sequences it).
