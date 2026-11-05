@@ -27,9 +27,9 @@ Status as of 2026-11-05 after the security/foundation work. Severity: P0 blocker
 | ID | Sev | Issue |
 |---|---|---|
 | KI-20 | P1 | **Org/branch/department/unit/warehouse/business settings still live in browser storage** (`src/services/database.ts`) — edits do not reach the server. Users/roles/permissions are server-backed. |
-| KI-21 | P1 | **Live database never verified.** Everything above was proven on a database built from migrations. The production InsForge schema may differ (see 0003 compat columns; `IF NOT EXISTS` makes them no-ops where columns exist). Run `npm run db:migrate --status` against a **copy** first. |
+| KI-21 | P1 | **Live database inspected read-only (2026-11-05); upgrade rehearsed but NOT applied.** It has 172 of 234 tables (66 modules' tables missing), PostgreSQL 15, a BYPASSRLS role, demo-sized data only, an `audit_logs` shape that rejects the current writers, and no unique key on role_permissions. See `LIVE_DATABASE_FINDINGS.md`. Applying migrations to live awaits an explicit go-ahead (backup first). |
 | KI-09 | P1 | Marketplace/ads clients still fall back to simulated sessions/data when credentials are absent (Amazon even after a failed live login). Must become explicit sandbox mode or be removed. |
-| KI-22 | P1 | RLS is implemented but disabled; needs a restricted DB role and staged rollout (runbook §6). |
+| KI-22 | P1 | RLS is implemented but disabled; the live connecting role `project_admin` has BYPASSRLS, so a separate restricted role is required (runbook §6). |
 | KI-23 | P2 | ~580 handlers still read tenant/actor from headers/query with hard-coded fallbacks; safe only because middleware overwrites them. Migrate routers to `req.auth` and delete the fallbacks (`grep -rn "org-jyotsvan-corp" src/server`). |
 | KI-24 | P2 | Legacy migrations insert demo data (and ran with skipped seeds in tolerant mode); production seeding must be separated from schema. |
 | KI-25 | P2 | `roles.slug` is globally unique (blocks per-tenant role names); `users.email` is globally unique. |

@@ -23,11 +23,13 @@ ON CONFLICT (code) DO NOTHING;
 
 -- helper: grant a list of permission codes to a role (by slug)
 CREATE OR REPLACE FUNCTION pg_temp.grant_codes(role_slug TEXT, codes TEXT[]) RETURNS VOID AS $$
+  -- NOT EXISTS (not ON CONFLICT): the live database has no unique constraint on (role_id, permission_id).
   INSERT INTO role_permissions (id, role_id, permission_id)
   SELECT 'rp-' || r.id || '-' || p.id, r.id, p.id
   FROM roles r JOIN permissions p ON p.code = ANY(codes)
   WHERE r.slug = role_slug
-  ON CONFLICT (role_id, permission_id) DO NOTHING;
+    AND NOT EXISTS (SELECT 1 FROM role_permissions x WHERE x.role_id = r.id AND x.permission_id = p.id)
+    AND NOT EXISTS (SELECT 1 FROM role_permissions x WHERE x.id = 'rp-' || r.id || '-' || p.id);
 $$ LANGUAGE sql;
 
 SELECT pg_temp.grant_codes('management', ARRAY[

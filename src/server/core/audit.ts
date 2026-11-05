@@ -16,8 +16,9 @@ export interface AuditEntry {
 export async function writeAudit(e: AuditEntry): Promise<void> {
   try {
     await pool.query(
-      `INSERT INTO audit_logs (id, organization_id, actor_id, actor_email, action, target_resource, target_id, details, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())`,
+      // entity_type/entity_id mirror target_resource/target_id for databases that still carry the older audit shape.
+      `INSERT INTO audit_logs (id, organization_id, actor_id, actor_email, action, target_resource, target_id, entity_type, entity_id, details, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $6, $7, $8, NOW())`,
       [
         newId('aud'),
         e.organizationId,

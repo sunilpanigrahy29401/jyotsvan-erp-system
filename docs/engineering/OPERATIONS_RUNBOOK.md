@@ -21,6 +21,9 @@ npm run build && npm start          # node dist/server.cjs
 `--legacy` also inserts the demo/seed rows the original migrations contain (demo users, products, etc.). They can be deactivated from Settings > Users. Demo users have **no password**, so they cannot sign in.
 Existing database (already built): run `npm run db:migrate` (versioned only) as a release step. Migrations never run on server boot in production; the server logs an error if any are pending.
 
+## 2b. Upgrading the existing InsForge database
+See `LIVE_DATABASE_FINDINGS.md` (what is missing, rehearsal results, backup/verify/rollback steps). The live database is PostgreSQL 15 with ~50 demo-sized rows; take a backup first (`backups create --wait`).
+
 ## 3. Creating and managing users
 - Admin UI: Settings > Users (creates a user with a one-time temporary password; the user must choose their own at first sign-in).
 - CLI: `PASSWORD=... npm run user -- set-password <email>` (e.g. to recover the last admin).
