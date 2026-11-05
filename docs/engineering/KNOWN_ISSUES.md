@@ -27,7 +27,7 @@ Status as of 2026-11-05 after the security/foundation work. Severity: P0 blocker
 | ID | Sev | Issue |
 |---|---|---|
 | KI-20 | P1 | **Org/branch/department/unit/warehouse/business settings still live in browser storage** (`src/services/database.ts`) — edits do not reach the server. Users/roles/permissions are server-backed. |
-| KI-21 | P1 | **Live database inspected read-only (2026-11-05); upgrade rehearsed but NOT applied.** It has 172 of 234 tables (66 modules' tables missing), PostgreSQL 15, a BYPASSRLS role, demo-sized data only, an `audit_logs` shape that rejects the current writers, and no unique key on role_permissions. See `LIVE_DATABASE_FINDINGS.md`. Applying migrations to live awaits an explicit go-ahead (backup first). |
+| KI-21 | P1 | **Live database partially upgraded (2026-11-05, backup `pre-upgrade-2026-11-05`).** 65 missing tables and reference data are applied. **Still required:** run `npm run db:migrate` as the `postgres` owner role from a machine that can reach the DB (CLI role cannot ALTER the original tables). Until then login, audit writes and several legacy-named queries fail on live. See `LIVE_DATABASE_FINDINGS.md`. |
 | KI-09 | P1 | Marketplace/ads clients still fall back to simulated sessions/data when credentials are absent (Amazon even after a failed live login). Must become explicit sandbox mode or be removed. |
 | KI-22 | P1 | RLS is implemented but disabled; the live connecting role `project_admin` has BYPASSRLS, so a separate restricted role is required (runbook §6). |
 | KI-23 | P2 | ~580 handlers still read tenant/actor from headers/query with hard-coded fallbacks; safe only because middleware overwrites them. Migrate routers to `req.auth` and delete the fallbacks (`grep -rn "org-jyotsvan-corp" src/server`). |
@@ -37,7 +37,7 @@ Status as of 2026-11-05 after the security/foundation work. Severity: P0 blocker
 | KI-26 | P2 | Rate limiting in memory (single instance). No Redis/job queue. |
 | KI-15 | P2 | Single 4.2 MB frontend bundle; no code splitting. |
 | KI-12 | P2 | Routers mounted at two URL prefixes (`/api/x` and `/api/integrations/x`). |
-| KI-27 | P2 | Integration "not configured" states return HTTP 500 instead of 4xx (Flipkart overview). |
+| KI-27 | P3 | Resolved: "integration not connected" now returns 409 `NOT_CONNECTED` (core/not-connected.ts). |
 | KI-28 | P2 | Sensitive HR/partner personal data (PAN, UAN, bank account) stored in plain columns. |
 | KI-29 | P2 | Meta OAuth flow is half-built: callback does not exchange the code, `state` is not signed/verified. |
 | KI-30 | P3 | Backups/PITR/monitoring not provisioned. |

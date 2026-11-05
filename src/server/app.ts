@@ -36,6 +36,7 @@ import { authRouter } from './core/auth-routes.ts';
 import { usersRouter, rolesRouter, permissionsRouter } from './core/admin-routes.ts';
 import { authenticate, enforceTenantContext, rateLimit, requireSuperAdmin } from './core/middleware.ts';
 import { runAsSystem } from './core/tenant-context.ts';
+import { mapNotConnected } from './core/not-connected.ts';
 import { enforcePermissions, isPublic } from './core/permission-map.ts';
 import { pendingMigrations } from './core/migrator.ts';
 
@@ -97,6 +98,7 @@ export function createApp() {
   app.use('/api/auth', (_req, _res, next) => runAsSystem(() => next()), authRouter);
 
   // ---- Everything else under /api requires a verified session and permission ----
+  app.use('/api', mapNotConnected); // 'integration not connected' is a 409, not a server error
   const gate = express.Router();
   gate.use(authenticate);
   gate.use(enforceTenantContext);

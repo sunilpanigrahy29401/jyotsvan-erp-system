@@ -34,3 +34,24 @@ Not exercised: collisions between the demo seeds and the **actual 50-odd live ro
 3. Create the first real admin: `PASSWORD=… npm run user -- create you@company.com "Name" --super-admin` (demo users have no password and cannot sign in).
 4. Verify: `GET /api/admin/system-status`, then run the app's smoke checks.
 5. Rollback: `backups restore <id>` (overwrites DB and storage; data created since is lost).
+
+---
+## STATUS: partially applied to the live database (2026-11-05, with approval)
+**Backup first:** `pre-upgrade-2026-11-05` (id `a7a5cd35-1ace-4f32-8dfe-1f4b4494c4b5`, completed). Restore: `npx -y @insforge/cli backups restore a7a5cd35-1ace-4f32-8dfe-1f4b4494c4b5` (overwrites database and storage).
+
+Applied through the InsForge CLI (`db migrations up`, files in `migrations/`):
+| Step | What | Result |
+|---|---|---|
+| 1 | 65 missing tables with indexes and constraints (DDL only, no data) | applied; live 172 -> 237 tables; existing row counts unchanged |
+| 4 | Reference data only: permissions 333 -> 418, role-permission links 567 -> 743, integration provider catalogue (17). No demo connections, orders, products or credentials | applied |
+
+**NOT yet applied (needs the `postgres` role):** the original 172 tables are owned by `postgres`; the CLI role `project_admin` cannot ALTER them. The remaining step is migrations `0001`-`0005` (auth columns/tables, permission codes, compat columns, 57 column additions on 8 tables including `audit_logs`, relaxing the legacy audit NOT NULLs). All are additive and idempotent. Run from a machine that can reach the database port (this sandbox cannot):
+```bash
+DATABASE_URL="$(npx -y @insforge/cli db connection-string)" DATABASE_SSL=disable-or-ca-as-needed npm run db:migrate
+```
+(`db connection-string` prints a URL with the `postgres` password: do not paste it in chat or commit it. If TLS verification fails, set `DATABASE_SSL_CA` rather than disabling verification.) Validated on a scratch copy placed in the exact current live state: schema becomes identical to the target and all 51 tests pass.
+Until that step runs, the app on live will still fail on: audit writes, login (no password columns), and the legacy-named read columns.
+
+Then: `PASSWORD=... npm run user -- create you@company.com "Name" --super-admin` (demo users have no password).
+
+Applied-by-CLI scripts: `migrations/20261105134809_live-upgrade-1-new-tables.sql`, `migrations/20261105134847_live-upgrade-4-reference-data.sql` (kept as the record; do not re-run).

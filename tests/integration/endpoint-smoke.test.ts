@@ -50,8 +50,7 @@ describe.skipIf(!HAS_DB)('endpoint smoke on a migration-built database', () => {
     const failures: string[] = [];
     for (const p of unique) {
       const r = await request(app).get(`/api${p}`).set('Authorization', `Bearer ${token}`);
-      // "integration not configured" is an expected state for a fresh tenant (should be 4xx; tracked in KNOWN_ISSUES).
-      if (r.status >= 500 && !(p in KNOWN_BROKEN) && !/not configured/i.test(String(r.body?.error || ''))) {
+      if (r.status >= 500 && !(p in KNOWN_BROKEN)) {
         failures.push(`${r.status} GET ${p} :: ${String(r.body?.error || r.text).slice(0, 110)}`);
       }
     }
