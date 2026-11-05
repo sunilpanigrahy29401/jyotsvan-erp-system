@@ -14,6 +14,7 @@ import type {
   WebhookIngestResult,
 } from '../../types/integrations.ts';
 import { FlipkartApiClient } from './flipkart-client.ts';
+import { allowUnsignedWebhooks, NOT_VERIFIABLE_REJECTED } from '../core/webhook-guard.ts';
 
 export class FlipkartConnector implements IntegrationProviderAdapter {
   readonly providerKey = 'flipkart';
@@ -158,6 +159,8 @@ export class FlipkartConnector implements IntegrationProviderAdapter {
     webhookConfig: { secretHash?: string; endpointIdentifier?: string },
     ctx?: ProviderAdapterContext
   ): Promise<WebhookIngestResult> {
+    // No signature scheme is implemented for this provider: reject rather than accept unauthenticated public POSTs.
+    if (!allowUnsignedWebhooks()) return { ...NOT_VERIFIABLE_REJECTED };
     const payload = typeof body === 'string' ? JSON.parse(body || '{}') : body;
     const eventId = (payload.orderId as string) || (payload.order_id as string) || `fk_evt_${Date.now()}`;
     return {

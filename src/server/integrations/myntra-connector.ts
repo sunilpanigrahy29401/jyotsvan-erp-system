@@ -14,6 +14,7 @@ import type {
   WebhookIngestResult,
 } from '../../types/integrations.ts';
 import { MyntraApiClient } from './myntra-client.ts';
+import { allowUnsignedWebhooks, NOT_VERIFIABLE_REJECTED } from '../core/webhook-guard.ts';
 
 export class MyntraConnector implements IntegrationProviderAdapter {
   readonly providerKey = 'myntra';
@@ -150,6 +151,8 @@ export class MyntraConnector implements IntegrationProviderAdapter {
     webhookConfig: { secretHash?: string; endpointIdentifier?: string },
     ctx?: ProviderAdapterContext
   ): Promise<WebhookIngestResult> {
+    // No signature scheme is implemented for this provider: reject rather than accept unauthenticated public POSTs.
+    if (!allowUnsignedWebhooks()) return { ...NOT_VERIFIABLE_REJECTED };
     const payload = typeof body === 'string' ? JSON.parse(body || '{}') : body;
     const eventId = (payload.order_id as string) || (payload.release_id as string) || `myntra_evt_${Date.now()}`;
     return {

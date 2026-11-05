@@ -15,6 +15,7 @@ import { ShopifyClient } from './shopify-client.ts';
 import { ShopifyService } from '../shopify-service.ts';
 import { NotificationService } from '../notification-service.ts';
 import { AuditService } from '../audit-service.ts';
+import { allowUnsignedWebhooks, UNSIGNED_REJECTED } from '../core/webhook-guard.ts';
 
 export class ShopifyAdapter implements IntegrationProviderAdapter {
   public readonly providerKey = 'shopify';
@@ -229,10 +230,13 @@ export class ShopifyAdapter implements IntegrationProviderAdapter {
     const topicHeader = ((headers['x-shopify-topic'] || headers['X-Shopify-Topic']) as string) || 'generic/event';
     const webhookIdHeader = ((headers['x-shopify-webhook-id'] || headers['X-Shopify-Webhook-Id']) as string) || `shp-wh-${Date.now()}`;
 
-    // Cryptographic verification if secret is configured
-    if (webhookConfig.secretHash && hmacHeader) {
-      const isValid = ShopifyClient.verifyWebhookHmac(rawBody, hmacHeader, webhookConfig.secretHash);
-      if (!isValid) {
+    // Cryptographic verification is mandatory: a missing secret or a missing/invalid header is a rejection.
+    // (Previously the check was skipped when the header was absent, so unsigned requests were accepted.)
+    if (!allowUnsignedWebhooks()) {
+      if (!webhookConfig.secretHash || !hmacHeader) {
+        return { ...UNSIGNED_REJECTED };
+      }
+      if (!ShopifyClient.verifyWebhookHmac(rawBody, hmacHeader, webhookConfig.secretHash)) {
         return {
           accepted: false,
           status: 'failed',

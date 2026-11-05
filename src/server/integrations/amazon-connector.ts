@@ -15,6 +15,7 @@ import type {
 } from '../../types/integrations.ts';
 import { AmazonSpApiClient } from './amazon-client.ts';
 import type { AmazonRegion } from '../../types/amazon.ts';
+import { allowUnsignedWebhooks, NOT_VERIFIABLE_REJECTED } from '../core/webhook-guard.ts';
 
 export class AmazonConnector implements IntegrationProviderAdapter {
   public readonly providerKey = 'amazon';
@@ -183,6 +184,8 @@ export class AmazonConnector implements IntegrationProviderAdapter {
     webhookConfig: { secretHash?: string; endpointIdentifier?: string },
     ctx?: ProviderAdapterContext
   ): Promise<WebhookIngestResult> {
+    // No signature scheme is implemented for this provider: reject rather than accept unauthenticated public POSTs.
+    if (!allowUnsignedWebhooks()) return { ...NOT_VERIFIABLE_REJECTED };
     return {
       accepted: true,
       deduplicated: false,

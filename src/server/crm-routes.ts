@@ -2,7 +2,10 @@
 // Express REST API Router for Jyotsvan CRM Subsystem
 
 import { Router, Request, Response } from 'express';
+import crypto from 'crypto';
 import { CrmService } from './crm-service.ts';
+import { pool } from './db.ts';
+import { allowUnsignedWebhooks } from './core/webhook-guard.ts';
 
 export const crmRouter = Router();
 
@@ -255,7 +258,20 @@ crmRouter.get('/integrations', async (req: Request, res: Response) => {
 // Public Lead Ingestion Webhook Endpoint (Webform, Meta, Google, IndiaMART)
 crmRouter.post('/webhooks/inbound', async (req: Request, res: Response) => {
   try {
-    const orgId = (req.headers['x-organization-id'] as string) || 'org-jyotsvan-corp';
+    // PUBLIC endpoint: require a shared ingest key, and never let the caller choose the tenant.
+    const expected = process.env.CRM_INGEST_KEY || '';
+    const provided = String(req.headers['x-ingest-key'] || req.query.key || '');
+    const keyOk =
+      expected.length >= 16 &&
+      provided.length === expected.length &&
+      crypto.timingSafeEqual(Buffer.from(provided), Buffer.from(expected));
+    if (!keyOk && !allowUnsignedWebhooks()) {
+      return res.status(401).json({ success: false, message: 'Invalid or missing ingest key.' });
+    }
+    const orgId =
+      process.env.CRM_INGEST_ORG_ID ||
+      (await pool.query('SELECT id FROM organizations ORDER BY created_at ASC LIMIT 1')).rows[0]?.id;
+    if (!orgId) return res.status(503).json({ success: false, message: 'No organization configured.' });
     const sourceKey = (req.query.source as string) || req.body.source || 'webform';
     const ip = req.ip || (req.headers['x-forwarded-for'] as string) || '';
 
