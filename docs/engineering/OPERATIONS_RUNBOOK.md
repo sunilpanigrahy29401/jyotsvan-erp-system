@@ -24,6 +24,24 @@ Existing database (already built): run `npm run db:migrate` (versioned only) as 
 ## 2b. Upgrading the existing InsForge database
 See `LIVE_DATABASE_FINDINGS.md`: part of the upgrade is already applied; the finishing command (`npm run db:migrate` as the `postgres` role) must be run from a machine that can reach the database port. Backup `pre-upgrade-2026-11-05` exists.
 
+## 2c. Applying migrations to the live InsForge database (privileged step)
+Status 2026-11-05: the CLI is logged in and linked (`npx -y @insforge/cli current`), `db query` works over HTTPS, but it runs as `project_admin`, which does not own the 172 original tables. Fix once, as the `postgres` role (InsForge dashboard SQL editor, or `psql` with the postgres connection string from the dashboard; `npx -y @insforge/cli db connection-string` prints the project URL):
+```sql
+-- review first: SELECT tablename FROM pg_tables WHERE schemaname='public' AND tableowner='postgres';
+DO $$ DECLARE r record; BEGIN
+  FOR r IN SELECT tablename FROM pg_tables WHERE schemaname='public' AND tableowner='postgres' LOOP
+    EXECUTE format('ALTER TABLE public.%I OWNER TO project_admin', r.tablename);
+  END LOOP;
+  FOR r IN SELECT sequencename FROM pg_sequences WHERE schemaname='public' AND sequenceowner='postgres' LOOP
+    EXECUTE format('ALTER SEQUENCE public.%I OWNER TO project_admin', r.sequencename);
+  END LOOP;
+END $$;
+```
+Then, from a machine that can reach the database's Postgres port (your laptop or the VPS, with `DATABASE_URL` from `db connection-string`; this cloud sandbox cannot): back up (`db export -o file.json`; the project allows only 1 manual backup), `npm run db:migrate -- --status`, `npm run db:migrate`. Ownership transfer changes who may DDL these tables, not who can read them; RLS and grants are unchanged. Alternative that avoids the transfer: run `npm run db:migrate` directly as `postgres`.
+
+## 2d. Embedded modules (HRMS, GST billing)
+Set `HRMS_UPSTREAM_URL` and/or `GST_BILLING_UPSTREAM_URL` (http(s) URL of the running service; keep them on a private network). The app forwards `/api/ext/hrms/*` and `/api/ext/gst-billing/*` after login and permission checks (`employees` / `invoices`), strips the bearer token and cookies, and adds `x-jyotsvan-user` / `x-jyotsvan-org` from the verified session. `GET /api/ext/status` and the *Connected Modules* screen show real state. Third-party code is MIT-licensed (keep each LICENSE if vendored).
+
 ## 3. Creating and managing users
 - Admin UI: Settings > Users (creates a user with a one-time temporary password; the user must choose their own at first sign-in).
 - CLI: `PASSWORD=... npm run user -- set-password <email>` (e.g. to recover the last admin).

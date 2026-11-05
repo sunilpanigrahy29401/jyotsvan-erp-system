@@ -67,3 +67,6 @@ files parsed partially (syntax-error regions) so distributor-UI dependency edges
 SYSTEM_OVERVIEW · DATABASE_ARCHITECTURE · DATABASE_MIGRATIONS · API_ARCHITECTURE · SECURITY_ARCHITECTURE ·
 MODULE_DEPENDENCIES · IMPLEMENTATION_STATUS · CRM_STATUS · KNOWN_ISSUES · LIVE_DATABASE_FINDINGS · OPERATIONS_RUNBOOK · TESTING_STRATEGY · PRD_GAP_ANALYSIS · BUILD_PLAN · `modules/` (per-domain notes).
 Target spec: `docs/PRD_Jyotsvan_ERP.md` (PRD is the source of truth for scope; BUILD_PLAN.md sequences it).
+
+## Live backend (InsForge) — state as of 2026-11-05
+CLI is logged in and linked to project `Jyotsvan` (`npx -y @insforge/cli current`; `.insforge/` is git-ignored — never commit it). `db query` works over HTTPS but runs as `project_admin`, which does not own the 172 original tables, so the versioned migrations are NOT applied live (KI-40, runbook 2c). `/api/ext/*` is the authenticated gateway to separately-run HRMS and GST-billing services (KI-46/47).

@@ -47,6 +47,11 @@ export const PERMISSION_RULES: Rule[] = [
   { test: /^\/field-sales(\/|$)/, modules: ['field_sales'] },
   { test: /^\/crm(\/|$)/, modules: ['crm'] },
 
+  // --- Embedded open-source modules (gateway in ext-proxy.ts)
+  { test: /^\/ext\/hrms(\/|$)/, modules: ['employees'] },
+  { test: /^\/ext\/gst-billing(\/|$)/, modules: ['invoices'] },
+  { test: /^\/ext\/status$/, modules: ['employees', 'invoices'] },
+
   // --- Commerce & marketing integrations (both mount styles)
   { test: /^\/(integrations\/)?meta(\/|$)/, modules: ['meta_ads', 'marketing'] },
   { test: /^\/(integrations\/)?google-ads(\/|$)/, modules: ['google_ads', 'marketing'] },

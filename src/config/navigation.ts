@@ -593,6 +593,15 @@ export const NAVIGATION_ITEMS: NavItem[] = [
     ],
   },
   {
+    id: 'modules',
+    title: 'Connected Modules',
+    path: '/modules',
+    iconName: 'Settings',
+    plannedPhase: 'Phase 7/3 Gateway',
+    requiredPermission: 'organization.view',
+    description: 'Status of the HRMS and GST billing services connected through the authenticated gateway.',
+  },
+  {
     id: 'settings',
     title: 'Settings',
     path: '/settings',

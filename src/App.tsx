@@ -12,6 +12,7 @@ import { OperationsPage } from './app/pages/OperationsPage';
 import { DistributionPage } from './app/pages/DistributionPage';
 import { FinancePage } from './app/pages/FinancePage';
 import { CrmPage } from './app/pages/CrmPage';
+import { ConnectedModulesPage } from './app/pages/ConnectedModulesPage';
 import { PeoplePage } from './app/pages/PeoplePage';
 import { AiPage } from './app/pages/AiPage';
 import { SettingsPage } from './app/pages/SettingsPage';
@@ -99,6 +100,9 @@ function MainRouter() {
     }
     if (currentPath.startsWith('/marketing') || currentPath.startsWith('/meta') || currentPath.startsWith('/ads')) {
       return <MarketingPage currentPath={currentPath.startsWith('/meta') ? '/marketing/meta' : currentPath} onNavigate={navigate} />;
+    }
+    if (currentPath.startsWith('/modules')) {
+      return <ConnectedModulesPage />;
     }
     if (currentPath.startsWith('/crm')) {
       return <CrmPage currentPath={currentPath} onNavigate={navigate} />;

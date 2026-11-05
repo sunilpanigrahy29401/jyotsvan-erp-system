@@ -39,6 +39,7 @@ import { runAsSystem } from './core/tenant-context.ts';
 import { mapNotConnected } from './core/not-connected.ts';
 import { enforcePermissions, isPublic } from './core/permission-map.ts';
 import { pendingMigrations } from './core/migrator.ts';
+import { extRouter } from './ext-proxy.ts';
 
 declare module 'http' {
   interface IncomingMessage {
@@ -158,6 +159,8 @@ export function createApp() {
   app.use('/api/reports', reportsRouter);
   app.use('/api/ai', aiRouter);
   app.use('/api/crm', crmRouter);
+  // Separately-run open-source modules (HRMS, GST billing), reachable only through the authenticated chain above.
+  app.use('/api/ext', extRouter);
 
   app.use('/api/users', usersRouter);
   app.use('/api/roles', rolesRouter);
