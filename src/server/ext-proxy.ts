@@ -26,7 +26,9 @@ export const EXT_SERVICES: ExtService[] = [
 
 const HOP_BY_HOP = new Set(['connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization', 'te', 'trailer', 'transfer-encoding', 'upgrade', 'host', 'content-length']);
 // Never forwarded upstream: our bearer/session, and anything that could impersonate a verified identity.
-const NEVER_FORWARD = new Set(['authorization', 'cookie', 'x-jyotsvan-user', 'x-jyotsvan-org', 'x-jyotsvan-email', 'x-forwarded-host']);
+// `origin`/`referer` are dropped too: the gateway is the trust boundary, and local-only upstreams (e.g. Free GST Billing)
+// refuse any request carrying a browser Origin that is not localhost.
+const NEVER_FORWARD = new Set(['authorization', 'cookie', 'origin', 'referer', 'x-jyotsvan-user', 'x-jyotsvan-org', 'x-jyotsvan-email', 'x-forwarded-host']);
 const NEVER_RETURN = new Set(['set-cookie', 'set-cookie2']);
 const TIMEOUT_MS = Number(process.env.EXT_PROXY_TIMEOUT_MS || 30_000);
 

@@ -106,6 +106,8 @@ describe.skipIf(!HAS_DB)('ext gateway (real Postgres, fake upstream)', () => {
       .set('x-jyotsvan-org', 'org-attacker')
       .set('x-jyotsvan-user', 'someone-else')
       .set('Cookie', 'sid=secret')
+      .set('Origin', 'https://erp.example.com')
+      .set('Referer', 'https://erp.example.com/modules')
       .send({ days: 2 });
     expect(r.status).toBe(200);
     expect(r.body.upstream).toBe(true);
@@ -116,6 +118,8 @@ describe.skipIf(!HAS_DB)('ext gateway (real Postgres, fake upstream)', () => {
     expect(got.url).toBe('/hr/api/v1/leave?x=1');
     expect(got.headers.authorization).toBeUndefined();
     expect(got.headers.cookie).toBeUndefined();
+    expect(got.headers.origin).toBeUndefined();
+    expect(got.headers.referer).toBeUndefined();
     expect(got.headers['x-jyotsvan-org']).toBe(ORG);
     expect(got.headers['x-jyotsvan-user']).toBe('usr-it-ext-admin');
   });
