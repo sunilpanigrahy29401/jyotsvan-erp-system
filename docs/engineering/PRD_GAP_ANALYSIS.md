@@ -1,3 +1,5 @@
+> **Superseded in part by `PRD_REAUDIT_2026-11-06.md`** (auth/RBAC/tests/CI/CRM now present; accounting, portals, MRP, loyalty still missing).
+
 # PRD_GAP_ANALYSIS
 
 Target: `docs/PRD_Jyotsvan_ERP.md` (v1.0 draft). Current: commit `bb842e8` as audited in IMPLEMENTATION_STATUS.md.
